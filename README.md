@@ -1,55 +1,54 @@
-# Inject Terminal Agent
+# David Agent (v4.2.0)
 
-An autonomous PowerShell and terminal-based coding agent with dynamic multi-language code execution and zero API keys.
+> **David** is an autonomous terminal and PowerShell AI agent powered by a unified 4-model architecture with self-healing execution and extensible skill packs.
 
-## Quick Installation
+---
 
-Run this directly in your Windows PowerShell or macOS/Linux terminal:
+## ⚡ Quick Install
 
-```bash
+In your Windows PowerShell or terminal:
+
+```powershell
 npm install -g git+https://github.com/seun22470-ui/inject.git
 ```
 
-Then start the agent:
+### Run David:
 
-```bash
-inject-agent
+```powershell
+david
 # or
-forge
+david-agent
 ```
 
-## Dynamic Multi-Language Code Execution
+---
 
-The agent dynamically detects, compiles, and executes code snippets across programming languages:
+## 🧠 4 Internal Models in One Agent (David)
 
-| Language | Shortcut | Example |
-| :--- | :--- | :--- |
-| **Python** | `/py` | `/py print(sum([x**2 for x in range(10)]))` |
-| **JavaScript** | `/js` | `/js console.log(process.versions)` |
-| **TypeScript** | `/ts` | `/ts const n: number = 42; console.log(n)` |
-| **Go** | `/go` | `/go package main; import "fmt"; func main() { fmt.Println("Go!") }` |
-| **Rust** | `/rust` | `/rust fn main() { println!("Rust compiled!"); }` |
-| **C** | `/c` | `/c #include <stdio.h>\nint main() { printf("Hello C\n"); }` |
-| **C++** | `/cpp` | `/cpp #include <iostream>\nint main() { std::cout << "C++"; }` |
-| **PHP** | `/php` | `/php <?php echo phpversion();` |
-| **Ruby** | `/ruby` | `/ruby puts (1..5).to_a.shuffle` |
-| **PowerShell** | `/ps` | `/ps Get-Process | Select-Object -First 5` |
-| **Bash** | `/bash` | `/bash uname -a` |
+David operates as a single unified identity containing four specialized internal models:
 
-You can also run `/run <lang> <code>` or simply paste raw markdown code blocks (` ```python ... ``` `), which are automatically identified and run.
+1. **`INJECT` (Commander & Generator)**
+   - System architect, file writer, dynamic multi-language code execution.
+2. **`CODE REVIEWER` (Self-Healing & Auditor)**
+   - Catches syntax & runtime errors, executes the `/heal` self-healing repair loop.
+3. **`ACCUMULATE` (Harvester & Web Researcher)**
+   - Live web search for code tutorials, DuckDuckGo parser, and installable validated skill packs (`/packs`).
+4. **`DIGEST` (Memory & AST Analyzer)**
+   - Generates project folder tree maps, tracks dependencies, and summarizes logs.
 
-## Package Management
+---
 
-- `pip install <package>` (Python)
-- `npm install <package>` (Node.js)
-- `cargo add <package>` (Rust)
-- `go get <package>` (Go)
-- `gem install <package>` (Ruby)
+## 🛠️ Essential Commands
 
-## Built-in Skills
-
-- `/search <query>`: DuckDuckGo live web search
-- `/inspect <url>`: Website framework & tech stack analyzer
-- `/extract <url>`: Clean webpage headings, text, and metadata extractor
-- `/exec <command>`: Direct PowerShell / shell command execution
-- `/help`: Active list of skills
+| Command | Description |
+| :--- | :--- |
+| `david` | Launch David CLI |
+| `/models` | View all 4 internal models |
+| `/model <name>` | Switch active model (`/model reviewer`, `/model accumulate`, etc.) |
+| `/heal <code>` | Run code through self-healing correction loop |
+| `/packs` | Search installable validated skill packs |
+| `/pack install <id>` | Install pack into David's active registry |
+| `/serve [dir] [port]` | Start embedded local HTTP server preview |
+| `/skills` | List all registered skills |
+| `/run <cmd>` | Run shell or terminal command |
+| `/help` | View complete help menu |
+| `/exit` | Exit David |
