@@ -17,12 +17,14 @@ const c = {
 
 function banner() {
   const brainInfo = brainManager.getActiveBrainInfo();
+  const allSkills = skillsRegistry.list();
   console.log(`${c.cyan}${c.bold}
 ====================================================================
-  INJECT TERMINAL AGENT | Universal Scaffolder & Multi-Language Runtime
+  INJECT TERMINAL AGENT v2.9 | 75 Advanced Autonomous Brain Skills
 ====================================================================${c.reset}`);
+  console.log(`${c.dim}Runtime Matrix: 75 Registered Skills across Thinking, Research, Writing, Debugging, Automation${c.reset}`);
   console.log(`${c.dim}Brain Engine: ${brainInfo.info}${c.reset}`);
-  console.log(`${c.dim}Commands: /build <prompt>, /install-skill, /key <provider> <key>, /run, /help${c.reset}\n`);
+  console.log(`${c.dim}Commands: ${c.yellow}/skills${c.dim}, ${c.yellow}/build <prompt>${c.dim}, ${c.yellow}/skill install <name> <code>${c.dim}, ${c.yellow}/key <provider> <key>${c.dim}, ${c.yellow}/run <lang> <code>${c.reset}\n`);
 }
 
 export async function startAgent() {
@@ -33,7 +35,7 @@ export async function startAgent() {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    prompt: `${c.magenta}${c.bold}agent> ${c.reset}`
+    prompt: `${c.magenta}${c.bold}agent[v2.9]> ${c.reset}`
   });
 
   rl.prompt();
@@ -50,32 +52,24 @@ export async function startAgent() {
       process.exit(0);
     }
 
-    if (input === '/help' || input === 'help') {
-      console.log(`\n${c.bold}Registered Skills (${skillsRegistry.list().length}):${c.reset}`);
-      skillsRegistry.list().forEach(s => {
-        const typeTag = s.type === 'custom' ? `${c.magenta}[CUSTOM]${c.reset}` : `${c.dim}[BUILTIN]${c.reset}`;
-        console.log(`  ${c.green}${s.name.padEnd(16)}${c.reset} ${typeTag} : ${s.description}`);
-      });
+    if (input === '/skills' || input === '/help' || input === 'help') {
+      const grouped = skillsRegistry.getByCategory();
+      console.log(`\n${c.bold}=== 75 CORE SKILLS MATRIX (v2.9) ===${c.reset}`);
+      let index = 1;
+      for (const [cat, skills] of Object.entries(grouped)) {
+        console.log(`\n${c.cyan}${c.bold}[${cat.toUpperCase()}]${c.reset}`);
+        for (const s of skills) {
+          const typeTag = s.type === 'custom' ? `${c.magenta}[CUSTOM]${c.reset}` : '';
+          console.log(`  ${c.green}${String(index++).padStart(2, ' ')}. ${s.name.padEnd(28)}${c.reset} ${typeTag}: ${s.description}`);
+        }
+      }
 
-      console.log(`\n${c.bold}Core Skills & Scaffolding:${c.reset}`);
-      console.log(`  ${c.cyan}/build <prompt>${c.reset}               : Turn prompt into workspace files, test, & report errors`);
-      console.log(`  ${c.cyan}/skill install <name> <code>${c.reset}  : Dynamically teach agent a new skill`);
-      console.log(`  ${c.cyan}/key <provider> <key>${c.reset}        : (Optional) Set API key (e.g. opus, openai) to boost brain`);
-      console.log(`\n${c.bold}Language Shorthand Commands:${c.reset}`);
-      console.log(`  ${c.cyan}/run <lang> <code>${c.reset}            : Dynamic multi-language executor`);
-      console.log(`  ${c.cyan}/py <code>${c.reset}                    : Run Python`);
-      console.log(`  ${c.cyan}/js <code>${c.reset}                    : Run Node.js JavaScript`);
-      console.log(`  ${c.cyan}/ts <code>${c.reset}                    : Run TypeScript`);
-      console.log(`  ${c.cyan}/go <code>${c.reset}                    : Run Go`);
-      console.log(`  ${c.cyan}/rust <code>${c.reset}                  : Compile & run Rust`);
-      console.log(`  ${c.cyan}/c <code>${c.reset}                     : Compile & run C`);
-      console.log(`  ${c.cyan}/cpp <code>${c.reset}                   : Compile & run C++`);
-      console.log(`  ${c.cyan}/php <code>${c.reset}                   : Run PHP`);
-      console.log(`  ${c.cyan}/ruby <code>${c.reset}                  : Run Ruby`);
-      console.log(`  ${c.cyan}/ps <code>${c.reset}                    : Run PowerShell`);
-      console.log(`  ${c.cyan}/bash <code>${c.reset}                  : Run Bash`);
-      console.log(`\n${c.bold}Package Installation:${c.reset}`);
-      console.log(`  ${c.yellow}pip install <pkgs>${c.reset}   | ${c.yellow}npm install <pkgs>${c.reset}   | ${c.yellow}cargo add <pkgs>${c.reset}\n`);
+      console.log(`\n${c.bold}Agent Command Shortcuts:${c.reset}`);
+      console.log(`  ${c.cyan}/build <prompt>${c.reset}              : Scaffolds project files, executes tests, reports errors`);
+      console.log(`  ${c.cyan}/skill install <name> <code>${c.reset} : Installs custom dynamic skill`);
+      console.log(`  ${c.cyan}/key <provider> <key>${c.reset}       : Optional API key (Opus, GPT) to boost thinking`);
+      console.log(`  ${c.cyan}/run <lang> <code>${c.reset}           : Multi-language runner (Python, Node, TS, Go, Rust, C, C++, PHP)`);
+      console.log(`  ${c.cyan}/py <code> | /js <code> | /go <code> | /rust <code> | /c <code> | /ps <code>${c.reset}\n`);
       rl.prompt();
       return;
     }
@@ -87,12 +81,12 @@ export async function startAgent() {
       const keyVal = keyMatch[2];
       await brainManager.setKey(provider, keyVal);
       console.log(`${c.green}${c.bold}Brain key registered for ${provider.toUpperCase()}!${c.reset}`);
-      console.log(`${c.dim}Optional cloud reasoning enabled. Agent continues to function 100% offline with skills if key is omitted.${c.reset}`);
+      console.log(`${c.dim}Optional cloud reasoning boosted. Agent operates 100% autonomously offline when key is omitted.${c.reset}`);
       rl.prompt();
       return;
     }
 
-    // Install Skill command: /skill install <name> <code>
+    // Install dynamic skill: /skill install <name> <code>
     if (input.startsWith('/skill install ') || input.startsWith('install skill ')) {
       const payload = input.replace(/^(\/skill install|install skill)\s+/i, '').trim();
       const firstSpace = payload.indexOf(' ');
@@ -105,7 +99,6 @@ export async function startAgent() {
       const skillCode = payload.slice(firstSpace).trim();
       const res = await skillsRegistry.installSkill({ name: skillName, code: skillCode });
       console.log(`${c.green}${res.message}${c.reset}`);
-      console.log(`${c.dim}Skill '${skillName}' is now active and can be called anytime!${c.reset}`);
       rl.prompt();
       return;
     }
@@ -113,26 +106,22 @@ export async function startAgent() {
     // /build <prompt>
     if (input.startsWith('/build ') || input.startsWith('build ')) {
       const promptText = input.replace(/^\/?build\s+/i, '').trim();
-      console.log(`${c.cyan}[Scaffolding Project]: "${promptText}"...${c.reset}`);
+      console.log(`${c.cyan}[v2.9 Scaffolding Engine]: "${promptText}"...${c.reset}`);
 
-      // Check if optional brain has suggestions
-      if (brainManager.hasOptionalBrain()) {
-        console.log(`${c.dim}[Querying optional brain for architecture advice...]${c.reset}`);
-      }
-
-      const res = await skillsRegistry.get('build_project').handler({ prompt: promptText });
+      const builder = skillsRegistry.get('build_project');
+      const res = await builder.handler({ prompt: promptText });
       if (res.success) {
-        console.log(`${c.green}${c.bold}Project successfully created and verified!${c.reset}`);
+        console.log(`${c.green}${c.bold}Project successfully scaffolded and verified!${c.reset}`);
         console.log(`Workspace: ${c.dim}${res.workspacePath}${c.reset}`);
         console.log(`Files created: ${res.generatedFiles.join(', ')}`);
         if (res.errors.length > 0) {
-          console.log(`${c.yellow}Warnings/Errors during execution:${c.reset}`);
+          console.log(`${c.yellow}Runtime feedback/warnings:${c.reset}`);
           console.log(JSON.stringify(res.errors, null, 2));
         } else {
-          console.log(`${c.green}No errors encountered during execution test.${c.reset}`);
+          console.log(`${c.green}Zero errors encountered during code execution verification.${c.reset}`);
         }
       } else {
-        console.log(`${c.red}${c.bold}Build verification encountered errors:${c.reset}`);
+        console.log(`${c.red}${c.bold}Execution verification detected errors:${c.reset}`);
         console.log(JSON.stringify(res.errors, null, 2));
       }
       rl.prompt();
@@ -206,33 +195,13 @@ export async function startAgent() {
     if (input.startsWith('/search ')) {
       const q = input.slice(8).trim();
       console.log(`${c.cyan}[Searching web]: ${q}...${c.reset}`);
-      const res = await skillsRegistry.get('search').handler({ query: q, limit: 5 });
+      const res = await skillsRegistry.get('web_searcher').handler({ query: q, limit: 5 });
       res.forEach((r, i) => {
         console.log(`\n${c.green}[${i+1}] ${r.title}${c.reset}`);
         if (r.url) console.log(`    ${c.dim}${r.url}${c.reset}`);
         console.log(`    ${r.snippet}`);
       });
       console.log('');
-      rl.prompt();
-      return;
-    }
-
-    // Inspect Site
-    if (input.startsWith('/inspect ')) {
-      const url = input.slice(9).trim();
-      console.log(`${c.cyan}[Inspecting website tech]: ${url}...${c.reset}`);
-      const res = await skillsRegistry.get('inspect').handler({ url });
-      console.log(JSON.stringify(res, null, 2));
-      rl.prompt();
-      return;
-    }
-
-    // Extract Page
-    if (input.startsWith('/extract ')) {
-      const url = input.slice(9).trim();
-      console.log(`${c.cyan}[Extracting page content]: ${url}...${c.reset}`);
-      const res = await skillsRegistry.get('extract').handler({ url });
-      console.log(JSON.stringify(res, null, 2));
       rl.prompt();
       return;
     }
@@ -253,7 +222,7 @@ export async function startAgent() {
     if (lower.startsWith('npm install ') || lower.startsWith('install npm ')) {
       const pkg = input.replace(/^(npm install|install npm)\s+/i, '').trim();
       console.log(`${c.cyan}[Installing NPM package]: ${pkg}${c.reset}`);
-      const res = await skillsRegistry.get('install_package').handler({ manager: 'npm', packages: pkg });
+      const res = await skillsRegistry.get('package_installer').handler({ manager: 'npm', packages: pkg });
       if (res.stdout) console.log(res.stdout);
       if (res.stderr) console.error(res.stderr);
       rl.prompt();
@@ -263,29 +232,25 @@ export async function startAgent() {
     if (lower.startsWith('pip install ') || lower.startsWith('install pip ')) {
       const pkg = input.replace(/^(pip install|install pip)\s+/i, '').trim();
       console.log(`${c.cyan}[Installing Python package]: ${pkg}${c.reset}`);
-      const res = await skillsRegistry.get('install_package').handler({ manager: 'pip', packages: pkg });
+      const res = await skillsRegistry.get('package_installer').handler({ manager: 'pip', packages: pkg });
       if (res.stdout) console.log(res.stdout);
       if (res.stderr) console.error(res.stderr);
       rl.prompt();
       return;
     }
 
-    if (lower.startsWith('cargo add ') || lower.startsWith('cargo install ')) {
-      const pkg = input.replace(/^(cargo add|cargo install)\s+/i, '').trim();
-      console.log(`${c.cyan}[Installing Cargo dependency]: ${pkg}${c.reset}`);
-      const res = await skillsRegistry.get('install_package').handler({ manager: 'cargo', packages: pkg });
-      if (res.stdout) console.log(res.stdout);
-      if (res.stderr) console.error(res.stderr);
-      rl.prompt();
-      return;
-    }
-
-    // Check if custom skill matches input
-    const customSkill = skillsRegistry.get(input.split(' ')[0]);
-    if (customSkill && customSkill.type === 'custom') {
-      console.log(`${c.cyan}[Executing Custom Skill]: ${customSkill.name}${c.reset}`);
-      const res = await customSkill.handler({ input: input.slice(customSkill.name.length).trim() });
-      displayCodeResult(res);
+    // Direct skill invocation by ID or name
+    const words = input.split(' ');
+    const potentialSkill = skillsRegistry.get(words[0]);
+    if (potentialSkill) {
+      console.log(`${c.cyan}[Invoking Skill]: ${potentialSkill.name}${c.reset}`);
+      const payload = input.slice(words[0].length).trim();
+      try {
+        const res = await potentialSkill.handler({ prompt: payload, task: payload, query: payload });
+        console.log(JSON.stringify(res, null, 2));
+      } catch (e) {
+        console.error(`${c.red}Skill error: ${e.message}${c.reset}`);
+      }
       rl.prompt();
       return;
     }
@@ -299,8 +264,8 @@ export async function startAgent() {
       return;
     }
 
-    console.log(`${c.yellow}[Agent Input Received]:${c.reset} ${input}`);
-    console.log(`${c.dim}Commands: ${c.yellow}/build <prompt>${c.dim}, ${c.yellow}/skill install <name> <code>${c.dim}, ${c.yellow}/run <lang> <code>${c.dim}, or ${c.yellow}/help${c.reset}`);
+    console.log(`${c.yellow}[v2.9 Engine]:${c.reset} ${input}`);
+    console.log(`${c.dim}Type ${c.yellow}/skills${c.dim} to see all 75 skills, ${c.yellow}/build <prompt>${c.dim} to generate apps, or ${c.yellow}/help${c.reset}`);
     rl.prompt();
   });
 }
