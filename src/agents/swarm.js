@@ -6,43 +6,52 @@ import { brainManager } from '../brain.js';
 
 export const AGENT_PERSONAS = {
   inject: {
+    id: 'inject',
     name: 'INJECT',
-    title: 'Primary Commander & Code Generator',
-    role: 'Decomposes high-level instructions, architects systems, writes files, and triggers execution.'
+    modelTitle: 'David-Inject Model (Architecture & Execution)',
+    role: 'Decomposes complex goals, architects systems, writes files, and runs live code.'
   },
   reviewer: {
+    id: 'reviewer',
     name: 'CODE REVIEWER',
-    title: 'Critic, Synthesizer & Self-Healing Agent',
-    role: 'Performs static analysis, catches runtime errors, applies instant repairs, and validates tests.'
+    modelTitle: 'David-Reviewer Model (Static Audit & Self-Healing)',
+    role: 'Performs syntax & static analysis, catches runtime errors, and auto-repairs code.'
   },
   accumulate: {
+    id: 'accumulate',
     name: 'ACCUMULATE',
-    title: 'Research, Knowledge & Skill Pack Collector',
-    role: 'Searches the web for libraries, imports validated skill packs, and expands agent capabilities.'
+    modelTitle: 'David-Accumulate Model (Web Search & Pack Harvester)',
+    role: 'Conducts live web searches, pulls packages, and installs validated skill packs.'
   },
   digest: {
+    id: 'digest',
     name: 'DIGEST',
-    title: 'Context, Codebase & Memory Analyzer',
-    role: 'Summarizes deep code trees, tracks dependencies, analyzes logs, and indexes project state.'
+    modelTitle: 'David-Digest Model (AST Tree & Memory Analyzer)',
+    role: 'Indexes project directory maps, resolves dependencies, and compresses context.'
   }
 };
 
-export class AgentSwarm {
+export class DavidSwarm {
   constructor() {
-    this.activeAgent = 'inject';
+    this.name = 'David';
+    this.activeModel = 'inject';
   }
 
-  setActive(agentKey) {
-    const k = agentKey.toLowerCase().replace(/[^a-z]/g, '');
-    if (k.includes('review')) this.activeAgent = 'reviewer';
-    else if (k.includes('accum') || k.includes('pack') || k.includes('search')) this.activeAgent = 'accumulate';
-    else if (k.includes('digest') || k.includes('mem') || k.includes('tree')) this.activeAgent = 'digest';
-    else this.activeAgent = 'inject';
-    return AGENT_PERSONAS[this.activeAgent];
+  setActive(modelKey) {
+    const k = (modelKey || '').toLowerCase().replace(/[^a-z]/g, '');
+    if (k.includes('review')) this.activeModel = 'reviewer';
+    else if (k.includes('accum') || k.includes('pack') || k.includes('search')) this.activeModel = 'accumulate';
+    else if (k.includes('digest') || k.includes('mem') || k.includes('tree')) this.activeModel = 'digest';
+    else this.activeModel = 'inject';
+    return AGENT_PERSONAS[this.activeModel];
   }
 
-  getCurrentAgent() {
-    return AGENT_PERSONAS[this.activeAgent];
+  getCurrentModel() {
+    return AGENT_PERSONAS[this.activeModel];
+  }
+
+  getAllModels() {
+    return Object.values(AGENT_PERSONAS);
   }
 
   async runReviewerFix(code, language) {
@@ -62,4 +71,5 @@ export class AgentSwarm {
   }
 }
 
-export const agentSwarm = new AgentSwarm();
+export const davidSwarm = new DavidSwarm();
+export const agentSwarm = davidSwarm;
