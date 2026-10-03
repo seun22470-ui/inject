@@ -1,22 +1,19 @@
 {
   "name": "inject-agent",
-  "version": "1.0.0",
-  "description": "Autonomous PowerShell terminal coding agent with web search, site inspection, real command execution, and live code execution.",
+  "version": "1.1.0",
+  "description": "Autonomous PowerShell and terminal coding agent with dynamic multi-language code execution and zero API keys",
+  "main": "src/index.js",
   "type": "module",
   "bin": {
-    "inject-agent": "./bin/agent.js",
-    "forge": "./bin/agent.js"
+    "inject-agent": "bin/inject.js",
+    "forge": "bin/inject.js"
   },
   "scripts": {
-    "start": "node bin/agent.js"
+    "start": "node bin/inject.js",
+    "test": "node tests/clean-install.test.js",
+    "test:clean-install": "node tests/clean-install.test.js"
   },
-  "keywords": [
-    "agent",
-    "cli",
-    "terminal",
-    "powershell",
-    "coding-agent"
-  ],
-  "author": "Brre",
+  "keywords": ["agent", "terminal", "powershell", "cli", "coder", "multi-language", "scaffolding"],
+  "author": "seun22470",
   "license": "MIT"
 }
