@@ -17,21 +17,21 @@ const c = {
 function banner() {
   console.log(`${c.cyan}${c.bold}
 ====================================================================
-  INJECT TERMINAL AGENT | Universal Multi-Language Runtime
+  INJECT TERMINAL AGENT | Universal Scaffolder & Multi-Language Runtime
 ====================================================================${c.reset}`);
-  console.log(`${c.dim}Supported Execution Engines: Python, JavaScript, TypeScript, Go, Rust, C, C++, Ruby, PHP, Java, Shell${c.reset}`);
-  console.log(`${c.dim}Quick Commands:${c.reset}`);
-  console.log(`  ${c.yellow}/run <lang> <code>${c.dim}   : Execute code snippet dynamically`);
-  console.log(`  ${c.yellow}/py <code>${c.dim}           : Run Python code directly`);
-  console.log(`  ${c.yellow}/js <code>${c.dim}           : Run JavaScript code directly`);
-  console.log(`  ${c.yellow}/ts <code>${c.dim}           : Run TypeScript code directly`);
-  console.log(`  ${c.yellow}/go <code>${c.dim}           : Run Go code directly`);
-  console.log(`  ${c.yellow}/rust <code>${c.dim}         : Compile & run Rust code`);
-  console.log(`  ${c.yellow}/search <query>${c.dim}      : DuckDuckGo live web search`);
-  console.log(`  ${c.yellow}/inspect <url>${c.dim}       : Website stack & technology inspector`);
-  console.log(`  ${c.yellow}/exec <cmd>${c.dim}          : Shell / PowerShell command execution`);
-  console.log(`  ${c.yellow}/help${c.dim}                : Display all skills and capabilities
-`);
+  console.log(`${c.dim}Capabilities: Project Generation, Error Reporting, Dynamic Multi-Lang Execution${c.reset}`);
+  console.log(`${c.dim}Commands:${c.reset}`);
+  console.log(`  ${c.yellow}/build <prompt>${c.dim}        : Scaffold project files, run in workspace, report errors`);
+  console.log(`  ${c.yellow}/run <lang> <code>${c.dim}    : Execute code snippet dynamically`);
+  console.log(`  ${c.yellow}/py <code>${c.dim}            : Run Python code directly`);
+  console.log(`  ${c.yellow}/js <code>${c.dim}            : Run JavaScript code directly`);
+  console.log(`  ${c.yellow}/ts <code>${c.dim}            : Run TypeScript code directly`);
+  console.log(`  ${c.yellow}/go <code>${c.dim}            : Run Go code directly`);
+  console.log(`  ${c.yellow}/rust <code>${c.dim}          : Compile & run Rust code`);
+  console.log(`  ${c.yellow}/search <query>${c.dim}       : DuckDuckGo live web search`);
+  console.log(`  ${c.yellow}/inspect <url>${c.dim}        : Website stack & technology inspector`);
+  console.log(`  ${c.yellow}/exec <cmd>${c.dim}           : Shell / PowerShell command execution`);
+  console.log(`  ${c.yellow}/help${c.dim}                 : Display all skills and capabilities\n`);
 }
 
 export async function startAgent() {
@@ -62,6 +62,8 @@ export async function startAgent() {
       skillsRegistry.list().forEach(s => {
         console.log(`  ${c.green}${s.name.padEnd(16)}${c.reset} : ${s.description}`);
       });
+      console.log(`\n${c.bold}Project Scaffolding:${c.reset}`);
+      console.log(`  ${c.cyan}/build <prompt>${c.reset}     : Turn prompt into workspace files, test, & report errors`);
       console.log(`\n${c.bold}Language Shorthand Commands:${c.reset}`);
       console.log(`  ${c.cyan}/run <lang> <code>${c.reset}  : Execute code in any language (or auto-detect)`);
       console.log(`  ${c.cyan}/py <code>${c.reset}          : Run Python`);
@@ -77,6 +79,29 @@ export async function startAgent() {
       console.log(`  ${c.cyan}/bash <code>${c.reset}        : Run Bash script`);
       console.log(`\n${c.bold}Package Installation Commands:${c.reset}`);
       console.log(`  ${c.yellow}pip install <pkgs>${c.reset}   | ${c.yellow}npm install <pkgs>${c.reset}   | ${c.yellow}cargo add <pkgs>${c.reset}\n`);
+      rl.prompt();
+      return;
+    }
+
+    // /build <prompt>
+    if (input.startsWith('/build ') || input.startsWith('build ')) {
+      const promptText = input.replace(/^\/?build\s+/i, '').trim();
+      console.log(`${c.cyan}[Scaffolding Project]: "${promptText}"...${c.reset}`);
+      const res = await skillsRegistry.get('build_project').handler({ prompt: promptText });
+      if (res.success) {
+        console.log(`${c.green}${c.bold}Project successfully created and verified!${c.reset}`);
+        console.log(`Workspace: ${c.dim}${res.workspacePath}${c.reset}`);
+        console.log(`Files created: ${res.generatedFiles.join(', ')}`);
+        if (res.errors.length > 0) {
+          console.log(`${c.yellow}Warnings/Errors during execution:${c.reset}`);
+          console.log(JSON.stringify(res.errors, null, 2));
+        } else {
+          console.log(`${c.green}No errors encountered during execution test.${c.reset}`);
+        }
+      } else {
+        console.log(`${c.red}${c.bold}Build verification encountered errors:${c.reset}`);
+        console.log(JSON.stringify(res.errors, null, 2));
+      }
       rl.prompt();
       return;
     }
