@@ -1,6 +1,7 @@
 import readline from 'readline';
 import { skillsRegistry } from './skills.js';
-import { executeCommand } from './executor.js';
+import { executeCommand, executeCode } from './executor.js';
+import { SUPPORTED_LANGUAGES, resolveLanguage } from './languages.js';
 
 const c = {
   cyan: '\x1b[36m',
@@ -16,10 +17,21 @@ const c = {
 function banner() {
   console.log(`${c.cyan}${c.bold}
 ====================================================================
-  INJECT TERMINAL AGENT | Autonomous PowerShell & Coding Brain
+  INJECT TERMINAL AGENT | Universal Multi-Language Runtime
 ====================================================================${c.reset}`);
-  console.log(`${c.dim}Loaded Skills: Web Search, Site Inspector, Extractor, Shell Exec, Code Runner${c.reset}`);
-  console.log(`${c.dim}Commands: ${c.yellow}/help${c.dim}, ${c.yellow}/search <query>${c.dim}, ${c.yellow}/inspect <url>${c.dim}, ${c.yellow}/exec <cmd>${c.dim}, ${c.yellow}/exit${c.reset}\n`);
+  console.log(`${c.dim}Supported Execution Engines: Python, JavaScript, TypeScript, Go, Rust, C, C++, Ruby, PHP, Java, Shell${c.reset}`);
+  console.log(`${c.dim}Quick Commands:${c.reset}`);
+  console.log(`  ${c.yellow}/run <lang> <code>${c.dim}   : Execute code snippet dynamically`);
+  console.log(`  ${c.yellow}/py <code>${c.dim}           : Run Python code directly`);
+  console.log(`  ${c.yellow}/js <code>${c.dim}           : Run JavaScript code directly`);
+  console.log(`  ${c.yellow}/ts <code>${c.dim}           : Run TypeScript code directly`);
+  console.log(`  ${c.yellow}/go <code>${c.dim}           : Run Go code directly`);
+  console.log(`  ${c.yellow}/rust <code>${c.dim}         : Compile & run Rust code`);
+  console.log(`  ${c.yellow}/search <query>${c.dim}      : DuckDuckGo live web search`);
+  console.log(`  ${c.yellow}/inspect <url>${c.dim}       : Website stack & technology inspector`);
+  console.log(`  ${c.yellow}/exec <cmd>${c.dim}          : Shell / PowerShell command execution`);
+  console.log(`  ${c.yellow}/help${c.dim}                : Display all skills and capabilities
+`);
 }
 
 export async function startAgent() {
@@ -46,19 +58,93 @@ export async function startAgent() {
     }
 
     if (input === '/help' || input === 'help') {
-      console.log(`\n${c.bold}Active Agent Skills & Commands:${c.reset}`);
+      console.log(`\n${c.bold}Registered Agent Skills:${c.reset}`);
       skillsRegistry.list().forEach(s => {
-        console.log(`  ${c.green}${s.name.padEnd(14)}${c.reset} : ${s.description}`);
+        console.log(`  ${c.green}${s.name.padEnd(16)}${c.reset} : ${s.description}`);
       });
-      console.log(`\n  ${c.cyan}/search <query>${c.reset}   : Search the live web`);
-      console.log(`  ${c.cyan}/inspect <url>${c.reset}    : Inspect website framework and tech stack`);
-      console.log(`  ${c.cyan}/extract <url>${c.reset}    : Extract headings, text and content from a page`);
-      console.log(`  ${c.cyan}/exec <cmd>${c.reset}       : Execute PowerShell or shell command`);
-      console.log(`  ${c.cyan}/exit${c.reset}             : Exit the agent\n`);
+      console.log(`\n${c.bold}Language Shorthand Commands:${c.reset}`);
+      console.log(`  ${c.cyan}/run <lang> <code>${c.reset}  : Execute code in any language (or auto-detect)`);
+      console.log(`  ${c.cyan}/py <code>${c.reset}          : Run Python`);
+      console.log(`  ${c.cyan}/js <code>${c.reset}          : Run Node.js JavaScript`);
+      console.log(`  ${c.cyan}/ts <code>${c.reset}          : Run TypeScript`);
+      console.log(`  ${c.cyan}/go <code>${c.reset}          : Run Go`);
+      console.log(`  ${c.cyan}/rust <code>${c.reset}        : Compile & run Rust`);
+      console.log(`  ${c.cyan}/c <code>${c.reset}           : Compile & run C`);
+      console.log(`  ${c.cyan}/cpp <code>${c.reset}         : Compile & run C++`);
+      console.log(`  ${c.cyan}/php <code>${c.reset}         : Run PHP`);
+      console.log(`  ${c.cyan}/ruby <code>${c.reset}        : Run Ruby`);
+      console.log(`  ${c.cyan}/ps <code>${c.reset}          : Run PowerShell script`);
+      console.log(`  ${c.cyan}/bash <code>${c.reset}        : Run Bash script`);
+      console.log(`\n${c.bold}Package Installation Commands:${c.reset}`);
+      console.log(`  ${c.yellow}pip install <pkgs>${c.reset}   | ${c.yellow}npm install <pkgs>${c.reset}   | ${c.yellow}cargo add <pkgs>${c.reset}\n`);
       rl.prompt();
       return;
     }
 
+    // Dynamic execution via /run <lang> <code> OR /run <code> (auto-detected)
+    if (input.startsWith('/run ') || input.startsWith('/run\n')) {
+      const rest = input.slice(5).trim();
+      const firstWord = rest.split(/\s+/)[0];
+      const detectedLang = resolveLanguage(firstWord);
+
+      let targetLang = null;
+      let code = rest;
+
+      if (detectedLang) {
+        targetLang = detectedLang;
+        code = rest.slice(firstWord.length).trim();
+      }
+
+      console.log(`${c.dim}[Running code${targetLang ? ` (${targetLang})` : ' (auto-detect)'}]...${c.reset}`);
+      const res = await executeCode({ code, language: targetLang });
+      displayCodeResult(res);
+      rl.prompt();
+      return;
+    }
+
+    // Specific language shorthand commands
+    const langAliases = {
+      '/py': 'python',
+      '/python': 'python',
+      '/js': 'javascript',
+      '/node': 'javascript',
+      '/ts': 'typescript',
+      '/go': 'go',
+      '/rust': 'rust',
+      '/rs': 'rust',
+      '/c': 'c',
+      '/cpp': 'cpp',
+      '/c++': 'cpp',
+      '/ruby': 'ruby',
+      '/rb': 'ruby',
+      '/php': 'php',
+      '/java': 'java',
+      '/bash': 'bash',
+      '/sh': 'bash',
+      '/ps': 'powershell'
+    };
+
+    for (const [cmdPrefix, lang] of Object.entries(langAliases)) {
+      if (input.startsWith(`${cmdPrefix} `) || input.startsWith(`${cmdPrefix}\n`)) {
+        const code = input.slice(cmdPrefix.length).trim();
+        console.log(`${c.dim}[Running in ${lang}]...${c.reset}`);
+        const res = await executeCode({ code, language: lang });
+        displayCodeResult(res);
+        rl.prompt();
+        return;
+      }
+    }
+
+    // Direct markdown code block pasted: ```<lang> ... ```
+    if (input.startsWith('```')) {
+      console.log(`${c.dim}[Detected Code Block, auto-executing]...${c.reset}`);
+      const res = await executeCode({ code: input });
+      displayCodeResult(res);
+      rl.prompt();
+      return;
+    }
+
+    // Web Search
     if (input.startsWith('/search ')) {
       const q = input.slice(8).trim();
       console.log(`${c.cyan}[Searching web]: ${q}...${c.reset}`);
@@ -73,6 +159,7 @@ export async function startAgent() {
       return;
     }
 
+    // Inspect Site
     if (input.startsWith('/inspect ')) {
       const url = input.slice(9).trim();
       console.log(`${c.cyan}[Inspecting website tech]: ${url}...${c.reset}`);
@@ -82,6 +169,7 @@ export async function startAgent() {
       return;
     }
 
+    // Extract Page
     if (input.startsWith('/extract ')) {
       const url = input.slice(9).trim();
       console.log(`${c.cyan}[Extracting page content]: ${url}...${c.reset}`);
@@ -91,9 +179,10 @@ export async function startAgent() {
       return;
     }
 
+    // PowerShell / Shell command execution
     if (input.startsWith('/exec ')) {
       const cmd = input.slice(6).trim();
-      console.log(`${c.dim}[Running in PowerShell]: ${cmd}${c.reset}`);
+      console.log(`${c.dim}[Running in PowerShell/Shell]: ${cmd}${c.reset}`);
       const res = await executeCommand(cmd);
       if (res.stdout) console.log(res.stdout);
       if (res.stderr) console.error(`${c.red}${res.stderr}${c.reset}`);
@@ -101,12 +190,12 @@ export async function startAgent() {
       return;
     }
 
-    // Direct install prompts
+    // Package managers shorthand
     const lower = input.toLowerCase();
     if (lower.startsWith('npm install ') || lower.startsWith('install npm ')) {
       const pkg = input.replace(/^(npm install|install npm)\s+/i, '').trim();
-      console.log(`${c.cyan}[Action] Installing Node packages: ${pkg}${c.reset}`);
-      const res = await skillsRegistry.get('install_npm').handler({ packages: pkg });
+      console.log(`${c.cyan}[Installing NPM package]: ${pkg}${c.reset}`);
+      const res = await skillsRegistry.get('install_package').handler({ manager: 'npm', packages: pkg });
       if (res.stdout) console.log(res.stdout);
       if (res.stderr) console.error(res.stderr);
       rl.prompt();
@@ -115,17 +204,50 @@ export async function startAgent() {
 
     if (lower.startsWith('pip install ') || lower.startsWith('install pip ')) {
       const pkg = input.replace(/^(pip install|install pip)\s+/i, '').trim();
-      console.log(`${c.cyan}[Action] Installing Python packages: ${pkg}${c.reset}`);
-      const res = await skillsRegistry.get('install_pip').handler({ packages: pkg });
+      console.log(`${c.cyan}[Installing Python package]: ${pkg}${c.reset}`);
+      const res = await skillsRegistry.get('install_package').handler({ manager: 'pip', packages: pkg });
       if (res.stdout) console.log(res.stdout);
       if (res.stderr) console.error(res.stderr);
       rl.prompt();
       return;
     }
 
-    // Default intent fallback
-    console.log(`${c.yellow}[Agent Input]:${c.reset} ${input}`);
-    console.log(`${c.dim}Tip: Type ${c.yellow}/help${c.dim} for skills, or use ${c.cyan}/search <query>${c.dim}, ${c.cyan}/exec <cmd>${c.reset}`);
+    if (lower.startsWith('cargo add ') || lower.startsWith('cargo install ')) {
+      const pkg = input.replace(/^(cargo add|cargo install)\s+/i, '').trim();
+      console.log(`${c.cyan}[Installing Cargo dependency]: ${pkg}${c.reset}`);
+      const res = await skillsRegistry.get('install_package').handler({ manager: 'cargo', packages: pkg });
+      if (res.stdout) console.log(res.stdout);
+      if (res.stderr) console.error(res.stderr);
+      rl.prompt();
+      return;
+    }
+
+    // Automatic check if input looks like code (e.g. print(...), console.log(...), def ...)
+    if (/^(print\(|console\.log\(|def\s+|function\s+|const\s+|let\s+|package\s+main|#include|fn\s+main)/.test(input)) {
+      console.log(`${c.dim}[Auto-detected code snippet, running]...${c.reset}`);
+      const res = await executeCode({ code: input });
+      displayCodeResult(res);
+      rl.prompt();
+      return;
+    }
+
+    // Fallback info
+    console.log(`${c.yellow}[Agent Input Received]:${c.reset} ${input}`);
+    console.log(`${c.dim}Tip: Run code with ${c.yellow}/run <lang> <code>${c.dim}, ${c.yellow}/py <code>${c.dim}, or type ${c.yellow}/help${c.reset}`);
     rl.prompt();
   });
+}
+
+function displayCodeResult(res) {
+  const langTag = res.language ? `[${res.language.toUpperCase()}]` : '[OUTPUT]';
+  if (res.success) {
+    console.log(`${c.green}${c.bold}=== ${langTag} SUCCESS ===${c.reset}`);
+    if (res.stdout) console.log(res.stdout);
+    if (!res.stdout && !res.stderr) console.log(`${c.dim}(Execution completed cleanly with no output)${c.reset}`);
+    if (res.stderr) console.log(`${c.yellow}${res.stderr}${c.reset}`);
+  } else {
+    console.log(`${c.red}${c.bold}=== ${langTag} FAILED (Exit Code ${res.exitCode || 1}) ===${c.reset}`);
+    if (res.stdout) console.log(res.stdout);
+    if (res.stderr) console.error(`${c.red}${res.stderr}${c.reset}`);
+  }
 }
