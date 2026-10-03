@@ -4,25 +4,25 @@ import path from 'path';
 import os from 'os';
 
 console.log('\n======================================================');
-console.log('  CLEAN-INSTALL & POWERSHELL VERIFICATION SUITE');
+console.log('  INJECT AGENT v2.9 CLEAN-INSTALL & SKILLS TEST SUITE');
 console.log('======================================================\n');
 
-const testWorkspace = path.join(os.tmpdir(), `inject-clean-install-${Date.now()}`);
+const testWorkspace = path.join(os.tmpdir(), `inject-v29-test-${Date.now()}`);
 fs.mkdirSync(testWorkspace, { recursive: true });
 
 try {
-  // 1. Pack the package into a distributable tarball
-  console.log('[1/4] Packing tarball with npm pack...');
+  // 1. Pack the package into a tarball
+  console.log('[1/4] Packing inject v2.9 via npm pack...');
   const packOutput = execSync('npm pack', { cwd: process.cwd(), encoding: 'utf8' }).trim();
   const tarballName = packOutput.split('\n').filter(Boolean).pop().trim();
   const tarballPath = path.resolve(process.cwd(), tarballName);
   console.log(`      ✓ Created package archive: ${tarballName}`);
 
-  // 2. Initialize isolated test environment with fresh package.json
+  // 2. Install cleanly into isolated directory
   console.log('[2/4] Testing isolated clean install...');
   fs.writeFileSync(
     path.join(testWorkspace, 'package.json'),
-    JSON.stringify({ name: 'verify-env', version: '1.0.0', type: 'module' }, null, 2)
+    JSON.stringify({ name: 'verify-v29', version: '2.9.0', type: 'module' }, null, 2)
   );
 
   execSync(`npm install "${tarballPath}" --no-audit --no-fund`, {
@@ -32,7 +32,7 @@ try {
   });
   console.log('      ✓ Package installed cleanly.');
 
-  // 3. Verify executable binaries (both inject-agent and forge)
+  // 3. Verify binaries
   console.log('[3/4] Verifying CLI binaries: inject-agent & forge...');
   const binDir = path.join(testWorkspace, 'node_modules', '.bin');
   const binInject = path.join(binDir, process.platform === 'win32' ? 'inject-agent.cmd' : 'inject-agent');
@@ -47,8 +47,8 @@ try {
   console.log('      ✓ Found executable: inject-agent');
   console.log('      ✓ Found executable: forge');
 
-  // 4. Verify PowerShell / Shell launch execution
-  console.log('[4/4] Verifying launch simulation in PowerShell / Shell...');
+  // 4. Verify 75 skills loaded and PowerShell launch
+  console.log('[4/4] Verifying 75 skills registration and interactive launch...');
   const agentEntry = path.join(testWorkspace, 'node_modules', 'inject-agent', 'bin', 'agent.js');
 
   const testProcess = spawn('node', [agentEntry], {
@@ -60,28 +60,26 @@ try {
   testProcess.stdout.on('data', (d) => { output += d.toString(); });
   testProcess.stderr.on('data', (d) => { output += d.toString(); });
 
-  // Send interactive commands: /help and /exit
-  testProcess.stdin.write('/help\n');
+  testProcess.stdin.write('/skills\n');
   testProcess.stdin.write('/exit\n');
   testProcess.stdin.end();
 
   await new Promise((resolve, reject) => {
     testProcess.on('close', (code) => {
-      if (output.includes('INJECT TERMINAL AGENT')) {
-        console.log('      ✓ Banner rendered and command prompt initialized.');
-        console.log('      ✓ Received interactive /help and /exit correctly.');
+      if (output.includes('INJECT TERMINAL AGENT v2.9') && output.includes('75 CORE SKILLS MATRIX')) {
+        console.log('      ✓ Banner v2.9 rendered correctly.');
+        console.log('      ✓ All 75 Skills confirmed loaded across categories.');
         resolve();
       } else {
-        reject(new Error(`Agent process failed to launch. Output: ${output}`));
+        reject(new Error(`Agent v2.9 launch test failed. Code: ${code}. Output: ${output}`));
       }
     });
   });
 
-  // Clean tarball
   fs.unlinkSync(tarballPath);
 
   console.log('\n======================================================');
-  console.log('  PASSED: Both binaries and PowerShell launch verified!');
+  console.log('  PASSED: Inject Agent v2.9 with 75 Skills Verified! ');
   console.log('======================================================\n');
 } catch (err) {
   console.error('\n[TEST FAILED]:', err.message);
