@@ -2,6 +2,7 @@ import readline from 'readline';
 import { skillsRegistry } from './skills.js';
 import { executeCommand, executeCode } from './executor.js';
 import { SUPPORTED_LANGUAGES, resolveLanguage } from './languages.js';
+import { brainManager } from './brain.js';
 
 const c = {
   cyan: '\x1b[36m',
@@ -15,26 +16,18 @@ const c = {
 };
 
 function banner() {
+  const brainInfo = brainManager.getActiveBrainInfo();
   console.log(`${c.cyan}${c.bold}
 ====================================================================
   INJECT TERMINAL AGENT | Universal Scaffolder & Multi-Language Runtime
 ====================================================================${c.reset}`);
-  console.log(`${c.dim}Capabilities: Project Generation, Error Reporting, Dynamic Multi-Lang Execution${c.reset}`);
-  console.log(`${c.dim}Commands:${c.reset}`);
-  console.log(`  ${c.yellow}/build <prompt>${c.dim}        : Scaffold project files, run in workspace, report errors`);
-  console.log(`  ${c.yellow}/run <lang> <code>${c.dim}    : Execute code snippet dynamically`);
-  console.log(`  ${c.yellow}/py <code>${c.dim}            : Run Python code directly`);
-  console.log(`  ${c.yellow}/js <code>${c.dim}            : Run JavaScript code directly`);
-  console.log(`  ${c.yellow}/ts <code>${c.dim}            : Run TypeScript code directly`);
-  console.log(`  ${c.yellow}/go <code>${c.dim}            : Run Go code directly`);
-  console.log(`  ${c.yellow}/rust <code>${c.dim}          : Compile & run Rust code`);
-  console.log(`  ${c.yellow}/search <query>${c.dim}       : DuckDuckGo live web search`);
-  console.log(`  ${c.yellow}/inspect <url>${c.dim}        : Website stack & technology inspector`);
-  console.log(`  ${c.yellow}/exec <cmd>${c.dim}           : Shell / PowerShell command execution`);
-  console.log(`  ${c.yellow}/help${c.dim}                 : Display all skills and capabilities\n`);
+  console.log(`${c.dim}Brain Engine: ${brainInfo.info}${c.reset}`);
+  console.log(`${c.dim}Commands: /build <prompt>, /install-skill, /key <provider> <key>, /run, /help${c.reset}\n`);
 }
 
 export async function startAgent() {
+  await brainManager.init();
+  await skillsRegistry.loadCustomSkills();
   banner();
 
   const rl = readline.createInterface({
@@ -58,27 +51,61 @@ export async function startAgent() {
     }
 
     if (input === '/help' || input === 'help') {
-      console.log(`\n${c.bold}Registered Agent Skills:${c.reset}`);
+      console.log(`\n${c.bold}Registered Skills (${skillsRegistry.list().length}):${c.reset}`);
       skillsRegistry.list().forEach(s => {
-        console.log(`  ${c.green}${s.name.padEnd(16)}${c.reset} : ${s.description}`);
+        const typeTag = s.type === 'custom' ? `${c.magenta}[CUSTOM]${c.reset}` : `${c.dim}[BUILTIN]${c.reset}`;
+        console.log(`  ${c.green}${s.name.padEnd(16)}${c.reset} ${typeTag} : ${s.description}`);
       });
-      console.log(`\n${c.bold}Project Scaffolding:${c.reset}`);
-      console.log(`  ${c.cyan}/build <prompt>${c.reset}     : Turn prompt into workspace files, test, & report errors`);
+
+      console.log(`\n${c.bold}Core Skills & Scaffolding:${c.reset}`);
+      console.log(`  ${c.cyan}/build <prompt>${c.reset}               : Turn prompt into workspace files, test, & report errors`);
+      console.log(`  ${c.cyan}/skill install <name> <code>${c.reset}  : Dynamically teach agent a new skill`);
+      console.log(`  ${c.cyan}/key <provider> <key>${c.reset}        : (Optional) Set API key (e.g. opus, openai) to boost brain`);
       console.log(`\n${c.bold}Language Shorthand Commands:${c.reset}`);
-      console.log(`  ${c.cyan}/run <lang> <code>${c.reset}  : Execute code in any language (or auto-detect)`);
-      console.log(`  ${c.cyan}/py <code>${c.reset}          : Run Python`);
-      console.log(`  ${c.cyan}/js <code>${c.reset}          : Run Node.js JavaScript`);
-      console.log(`  ${c.cyan}/ts <code>${c.reset}          : Run TypeScript`);
-      console.log(`  ${c.cyan}/go <code>${c.reset}          : Run Go`);
-      console.log(`  ${c.cyan}/rust <code>${c.reset}        : Compile & run Rust`);
-      console.log(`  ${c.cyan}/c <code>${c.reset}           : Compile & run C`);
-      console.log(`  ${c.cyan}/cpp <code>${c.reset}         : Compile & run C++`);
-      console.log(`  ${c.cyan}/php <code>${c.reset}         : Run PHP`);
-      console.log(`  ${c.cyan}/ruby <code>${c.reset}        : Run Ruby`);
-      console.log(`  ${c.cyan}/ps <code>${c.reset}          : Run PowerShell script`);
-      console.log(`  ${c.cyan}/bash <code>${c.reset}        : Run Bash script`);
-      console.log(`\n${c.bold}Package Installation Commands:${c.reset}`);
+      console.log(`  ${c.cyan}/run <lang> <code>${c.reset}            : Dynamic multi-language executor`);
+      console.log(`  ${c.cyan}/py <code>${c.reset}                    : Run Python`);
+      console.log(`  ${c.cyan}/js <code>${c.reset}                    : Run Node.js JavaScript`);
+      console.log(`  ${c.cyan}/ts <code>${c.reset}                    : Run TypeScript`);
+      console.log(`  ${c.cyan}/go <code>${c.reset}                    : Run Go`);
+      console.log(`  ${c.cyan}/rust <code>${c.reset}                  : Compile & run Rust`);
+      console.log(`  ${c.cyan}/c <code>${c.reset}                     : Compile & run C`);
+      console.log(`  ${c.cyan}/cpp <code>${c.reset}                   : Compile & run C++`);
+      console.log(`  ${c.cyan}/php <code>${c.reset}                   : Run PHP`);
+      console.log(`  ${c.cyan}/ruby <code>${c.reset}                  : Run Ruby`);
+      console.log(`  ${c.cyan}/ps <code>${c.reset}                    : Run PowerShell`);
+      console.log(`  ${c.cyan}/bash <code>${c.reset}                  : Run Bash`);
+      console.log(`\n${c.bold}Package Installation:${c.reset}`);
       console.log(`  ${c.yellow}pip install <pkgs>${c.reset}   | ${c.yellow}npm install <pkgs>${c.reset}   | ${c.yellow}cargo add <pkgs>${c.reset}\n`);
+      rl.prompt();
+      return;
+    }
+
+    // Natural Key Setter (e.g. "this key is opus: sk-ant-..." or "/key opus sk-ant-...")
+    const keyMatch = input.match(/^(?:\/key|key\s+is|this\s+key\s+is|use\s+key)\s+([a-zA-Z0-9_-]+)[:\s]+([a-zA-Z0-9_.-]+)/i);
+    if (keyMatch) {
+      const provider = keyMatch[1];
+      const keyVal = keyMatch[2];
+      await brainManager.setKey(provider, keyVal);
+      console.log(`${c.green}${c.bold}Brain key registered for ${provider.toUpperCase()}!${c.reset}`);
+      console.log(`${c.dim}Optional cloud reasoning enabled. Agent continues to function 100% offline with skills if key is omitted.${c.reset}`);
+      rl.prompt();
+      return;
+    }
+
+    // Install Skill command: /skill install <name> <code>
+    if (input.startsWith('/skill install ') || input.startsWith('install skill ')) {
+      const payload = input.replace(/^(\/skill install|install skill)\s+/i, '').trim();
+      const firstSpace = payload.indexOf(' ');
+      if (firstSpace === -1) {
+        console.log(`${c.red}Usage: /skill install <skill_name> <javascript_code>${c.reset}`);
+        rl.prompt();
+        return;
+      }
+      const skillName = payload.slice(0, firstSpace).trim();
+      const skillCode = payload.slice(firstSpace).trim();
+      const res = await skillsRegistry.installSkill({ name: skillName, code: skillCode });
+      console.log(`${c.green}${res.message}${c.reset}`);
+      console.log(`${c.dim}Skill '${skillName}' is now active and can be called anytime!${c.reset}`);
       rl.prompt();
       return;
     }
@@ -87,6 +114,12 @@ export async function startAgent() {
     if (input.startsWith('/build ') || input.startsWith('build ')) {
       const promptText = input.replace(/^\/?build\s+/i, '').trim();
       console.log(`${c.cyan}[Scaffolding Project]: "${promptText}"...${c.reset}`);
+
+      // Check if optional brain has suggestions
+      if (brainManager.hasOptionalBrain()) {
+        console.log(`${c.dim}[Querying optional brain for architecture advice...]${c.reset}`);
+      }
+
       const res = await skillsRegistry.get('build_project').handler({ prompt: promptText });
       if (res.success) {
         console.log(`${c.green}${c.bold}Project successfully created and verified!${c.reset}`);
@@ -106,7 +139,7 @@ export async function startAgent() {
       return;
     }
 
-    // Dynamic execution via /run <lang> <code> OR /run <code> (auto-detected)
+    // Dynamic execution via /run <lang> <code> OR /run <code>
     if (input.startsWith('/run ') || input.startsWith('/run\n')) {
       const rest = input.slice(5).trim();
       const firstWord = rest.split(/\s+/)[0];
@@ -127,7 +160,7 @@ export async function startAgent() {
       return;
     }
 
-    // Specific language shorthand commands
+    // Language shorthands
     const langAliases = {
       '/py': 'python',
       '/python': 'python',
@@ -160,7 +193,7 @@ export async function startAgent() {
       }
     }
 
-    // Direct markdown code block pasted: ```<lang> ... ```
+    // Code blocks pasted
     if (input.startsWith('```')) {
       console.log(`${c.dim}[Detected Code Block, auto-executing]...${c.reset}`);
       const res = await executeCode({ code: input });
@@ -204,7 +237,7 @@ export async function startAgent() {
       return;
     }
 
-    // PowerShell / Shell command execution
+    // Shell command
     if (input.startsWith('/exec ')) {
       const cmd = input.slice(6).trim();
       console.log(`${c.dim}[Running in PowerShell/Shell]: ${cmd}${c.reset}`);
@@ -215,7 +248,7 @@ export async function startAgent() {
       return;
     }
 
-    // Package managers shorthand
+    // Package managers
     const lower = input.toLowerCase();
     if (lower.startsWith('npm install ') || lower.startsWith('install npm ')) {
       const pkg = input.replace(/^(npm install|install npm)\s+/i, '').trim();
@@ -247,7 +280,17 @@ export async function startAgent() {
       return;
     }
 
-    // Automatic check if input looks like code (e.g. print(...), console.log(...), def ...)
+    // Check if custom skill matches input
+    const customSkill = skillsRegistry.get(input.split(' ')[0]);
+    if (customSkill && customSkill.type === 'custom') {
+      console.log(`${c.cyan}[Executing Custom Skill]: ${customSkill.name}${c.reset}`);
+      const res = await customSkill.handler({ input: input.slice(customSkill.name.length).trim() });
+      displayCodeResult(res);
+      rl.prompt();
+      return;
+    }
+
+    // Auto-code detection
     if (/^(print\(|console\.log\(|def\s+|function\s+|const\s+|let\s+|package\s+main|#include|fn\s+main)/.test(input)) {
       console.log(`${c.dim}[Auto-detected code snippet, running]...${c.reset}`);
       const res = await executeCode({ code: input });
@@ -256,9 +299,8 @@ export async function startAgent() {
       return;
     }
 
-    // Fallback info
     console.log(`${c.yellow}[Agent Input Received]:${c.reset} ${input}`);
-    console.log(`${c.dim}Tip: Run code with ${c.yellow}/run <lang> <code>${c.dim}, ${c.yellow}/py <code>${c.dim}, or type ${c.yellow}/help${c.reset}`);
+    console.log(`${c.dim}Commands: ${c.yellow}/build <prompt>${c.dim}, ${c.yellow}/skill install <name> <code>${c.dim}, ${c.yellow}/run <lang> <code>${c.dim}, or ${c.yellow}/help${c.reset}`);
     rl.prompt();
   });
 }
