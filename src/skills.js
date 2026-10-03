@@ -1,16 +1,61 @@
+import fs from 'fs/promises';
+import path from 'path';
+import os from 'os';
 import { executeCommand, executeCode, writeFile, readFile, listDirectory } from './executor.js';
-import { SUPPORTED_LANGUAGES } from './languages.js';
 import { webSearch, extractPage, inspectSite } from './tools/web.js';
 import { buildProjectFromPrompt } from './tools/project_builder.js';
+
+const SKILLS_DIR = path.join(os.homedir(), '.inject-agent', 'skills');
 
 class SkillRegistry {
   constructor() {
     this.skills = new Map();
+    this.customSkills = new Map();
     this.registerBuiltInSkills();
   }
 
+  async loadCustomSkills() {
+    try {
+      await fs.mkdir(SKILLS_DIR, { recursive: true });
+      const files = await fs.readdir(SKILLS_DIR);
+      for (const file of files) {
+        if (file.endsWith('.json')) {
+          const content = await fs.readFile(path.join(SKILLS_DIR, file), 'utf8');
+          const skillData = JSON.parse(content);
+          this.registerCustomSkill(skillData.name, skillData.description, skillData.handlerCode);
+        }
+      }
+    } catch {}
+  }
+
   register(name, description, handler) {
-    this.skills.set(name.toLowerCase(), { name, description, handler });
+    this.skills.set(name.toLowerCase(), { name, description, handler, type: 'builtin' });
+  }
+
+  registerCustomSkill(name, description, handlerCode) {
+    const handler = async (args) => {
+      // Execute the custom skill via dynamic code execution
+      return await executeCode({
+        code: `const args = ${JSON.stringify(args)};\n${handlerCode}`,
+        language: 'javascript'
+      });
+    };
+    this.customSkills.set(name.toLowerCase(), { name, description, handlerCode });
+    this.skills.set(name.toLowerCase(), { name, description, handler, type: 'custom' });
+  }
+
+  async installSkill({ name, description, code }) {
+    await fs.mkdir(SKILLS_DIR, { recursive: true });
+    const skillPath = path.join(SKILLS_DIR, `${name.toLowerCase()}.json`);
+    const skillData = {
+      name,
+      description: description || 'Custom user installed skill',
+      handlerCode: code,
+      installedAt: new Date().toISOString()
+    };
+    await fs.writeFile(skillPath, JSON.stringify(skillData, null, 2), 'utf8');
+    this.registerCustomSkill(name, skillData.description, code);
+    return { success: true, message: `Skill '${name}' installed successfully into agent brain!` };
   }
 
   get(name) {
@@ -20,12 +65,13 @@ class SkillRegistry {
   list() {
     return Array.from(this.skills.values()).map(s => ({
       name: s.name,
-      description: s.description
+      description: s.description,
+      type: s.type
     }));
   }
 
   registerBuiltInSkills() {
-    // 1. Build Project from Prompt
+    // 1. Project Generator & Error Reporter
     this.register('build_project', 'Turns prompts into real project files, runs code in workspace, and reports errors', async ({ prompt, targetDir = './generated-app', files, autoRun = true }) => {
       return await buildProjectFromPrompt({ prompt, targetDir, files, autoRun });
     });
