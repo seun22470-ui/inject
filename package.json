@@ -12,8 +12,9 @@
   },
   "scripts": {
     "start": "node bin/agent.js",
-    "test": "node tests/clean-install.test.js",
-    "test:clean-install": "node tests/clean-install.test.js"
+    "test": "node tests/clean-install.test.js && node tests/e2e-self-heal.test.js",
+    "test:clean-install": "node tests/clean-install.test.js",
+    "test:e2e": "node tests/e2e-self-heal.test.js"
   },
   "keywords": [
     "david",
