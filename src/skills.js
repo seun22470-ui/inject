@@ -3,6 +3,8 @@ import path from 'path';
 import os from 'os';
 import { SKILL_DEFINITIONS } from './skills/catalog.js';
 import { executeCode } from './executor.js';
+import { SkillPackManager, VALIDATED_SKILL_PACKS } from './skill_packs.js';
+import { SelfHealingEngine } from './tools/self_healer.js';
 
 const SKILLS_DIR = path.join(os.homedir(), '.inject-agent', 'skills');
 
@@ -16,12 +18,31 @@ class SkillRegistry {
   registerBuiltInSkills() {
     for (const def of SKILL_DEFINITIONS) {
       this.skills.set(def.id.toLowerCase(), { ...def, type: 'builtin' });
-      // Also register by natural name lowercased without spaces
       const compactName = def.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
       if (compactName !== def.id.toLowerCase()) {
         this.skills.set(compactName, { ...def, type: 'builtin' });
       }
     }
+
+    // Register Self-Healing & Skill Pack Builtins
+    this.register('self_healing_run', 'Executes code with 10x swift automated bug detection, correction, and testing', async ({ code, language }) => {
+      return await SelfHealingEngine.runWithSelfCorrection({ code, language });
+    });
+
+    this.register('install_skill_pack', 'Installs a validated pack of tested skills (web-automation, devops-cloud, database-orm, security-audit)', async ({ pack }) => {
+      return await SkillPackManager.installPack(pack, this);
+    });
+  }
+
+  register(id, description, handler) {
+    this.skills.set(id.toLowerCase(), {
+      id,
+      name: id.replace(/_/g, ' ').toUpperCase(),
+      category: 'Self-Healing & Core',
+      description,
+      handler,
+      type: 'builtin'
+    });
   }
 
   async loadCustomSkills() {
