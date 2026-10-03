@@ -3,31 +3,36 @@ import { executeCode, executeCommand } from '../executor.js';
 import { SelfHealingEngine } from '../tools/self_healer.js';
 import { SkillPackManager } from '../skill_packs.js';
 import { brainManager } from '../brain.js';
+import { AISeerInspector, taskScheduler } from '../tools/automator.js';
 
 export const AGENT_PERSONAS = {
   inject: {
     id: 'inject',
     name: 'INJECT',
-    modelTitle: 'David-Inject Model (Architecture & Execution)',
-    role: 'Decomposes complex goals, architects systems, writes files, and runs live code.'
+    modelTitle: 'David-Inject Model (Master Commander & Code Architect)',
+    role: 'Decomposes complex goals, architects systems, writes files, and triggers execution.',
+    costPerRun: 25
   },
   reviewer: {
     id: 'reviewer',
     name: 'CODE REVIEWER',
-    modelTitle: 'David-Reviewer Model (Static Audit & Self-Healing)',
-    role: 'Performs syntax & static analysis, catches runtime errors, and auto-repairs code.'
+    modelTitle: 'David-Reviewer Model (Self-Healing & Quality Assurance)',
+    role: 'Performs syntax audits, catches runtime failures, and auto-repairs code.',
+    costPerRun: 20
   },
   accumulate: {
     id: 'accumulate',
     name: 'ACCUMULATE',
-    modelTitle: 'David-Accumulate Model (Web Search & Pack Harvester)',
-    role: 'Conducts live web searches, pulls packages, and installs validated skill packs.'
+    modelTitle: 'David-Accumulate Model (Web Harvester & Skill Packs)',
+    role: 'Searches the web, imports validated skill packs, and expands capabilities.',
+    costPerRun: 15
   },
   digest: {
     id: 'digest',
     name: 'DIGEST',
-    modelTitle: 'David-Digest Model (AST Tree & Memory Analyzer)',
-    role: 'Indexes project directory maps, resolves dependencies, and compresses context.'
+    modelTitle: 'David-Digest Model (Memory, Context & AST Analyzer)',
+    role: 'Summarizes code trees, tracks dependencies, and indexes project state.',
+    costPerRun: 10
   }
 };
 
@@ -58,16 +63,8 @@ export class DavidSwarm {
     return await SelfHealingEngine.runWithSelfCorrection({ code, language });
   }
 
-  async runAccumulateSearch(query) {
-    const packs = SkillPackManager.searchPacks(query);
-    const web = await SkillPackManager.searchWebForSkills(query);
-    return { matchingPacks: packs, webResources: web };
-  }
-
-  async runDigestAnalysis(dirPath = '.') {
-    const files = await skillsRegistry.get('folder_tree_builder').handler({ dirPath, maxDepth: 2 });
-    const deps = await skillsRegistry.get('dependency_analyzer').handler({ dir: dirPath });
-    return { tree: files, dependencies: deps };
+  async runAISeerInspection(url) {
+    return await AISeerInspector.inspectPage(url);
   }
 }
 
