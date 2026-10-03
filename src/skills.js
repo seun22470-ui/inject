@@ -1,6 +1,5 @@
-import fs from 'fs/promises';
-import path from 'path';
-import { executeCommand, writeFile, readFile, listDirectory } from './executor.js';
+import { executeCommand, executeCode, writeFile, readFile, listDirectory } from './executor.js';
+import { SUPPORTED_LANGUAGES } from './languages.js';
 import { webSearch, extractPage, inspectSite } from './tools/web.js';
 
 class SkillRegistry {
@@ -25,33 +24,38 @@ class SkillRegistry {
   }
 
   registerBuiltInSkills() {
-    // 1. Web Search
-    this.register('search', 'Perform DuckDuckGo web search without any API keys', async ({ query, limit = 5 }) => {
+    // 1. Dynamic Multi-Language Code Runner
+    this.register('run_code', 'Dynamically execute code in Python, Node/TS, Go, Rust, C/C++, Ruby, PHP, Java, PowerShell or Bash', async ({ code, language }) => {
+      return await executeCode({ code, language });
+    });
+
+    // 2. Web Search
+    this.register('search', 'DuckDuckGo web search without any API keys', async ({ query, limit = 5 }) => {
       return await webSearch(query, limit);
     });
 
-    // 2. Extract Webpage
+    // 3. Extract Webpage
     this.register('extract', 'Extract headings, meta, tables, and clean text from any URL', async ({ url }) => {
       return await extractPage(url);
     });
 
-    // 3. Inspect Site
+    // 4. Inspect Site
     this.register('inspect', 'Inspect target website technologies (React, Next.js, Vue, Tailwind, Stripe, etc.)', async ({ url }) => {
       return await inspectSite(url);
     });
 
-    // 4. Run PowerShell command
-    this.register('exec', 'Run any terminal or PowerShell command', async ({ command }) => {
+    // 5. Terminal / PowerShell Command Exec
+    this.register('exec', 'Run any PowerShell or shell command directly on the host', async ({ command }) => {
       return await executeCommand(command);
     });
 
-    // 5. Code File Generation
+    // 6. Write File
     this.register('write_file', 'Write or overwrite code to a specified file path', async ({ path: filePath, content }) => {
       const writtenPath = await writeFile(filePath, content);
       return { success: true, message: `File saved: ${writtenPath}` };
     });
 
-    // 6. Read File
+    // 7. Read File
     this.register('read_file', 'Read contents of a file', async ({ path: filePath }) => {
       try {
         const content = await readFile(filePath);
@@ -61,7 +65,7 @@ class SkillRegistry {
       }
     });
 
-    // 7. List Directory
+    // 8. List Directory
     this.register('ls', 'List files in current or specified directory', async ({ path: dirPath = '.' }) => {
       try {
         const entries = await listDirectory(dirPath);
@@ -71,24 +75,19 @@ class SkillRegistry {
       }
     });
 
-    // 8. Install NPM Package
-    this.register('install_npm', 'Install npm package dependencies in current directory', async ({ packages, dev = false }) => {
-      const flag = dev ? '--save-dev' : '';
-      return await executeCommand(`npm install ${packages} ${flag}`.trim());
-    });
-
-    // 9. Install PIP Package
-    this.register('install_pip', 'Install Python packages via pip', async ({ packages }) => {
-      return await executeCommand(`pip install ${packages}`);
-    });
-
-    // 10. Live Code Runner (eval script)
-    this.register('run_code', 'Write a temporary Node.js script and execute it immediately', async ({ code }) => {
-      const tmpFile = path.resolve(process.cwd(), '.agent-run.mjs');
-      await fs.writeFile(tmpFile, code, 'utf8');
-      const res = await executeCommand(`node "${tmpFile}"`);
-      await fs.unlink(tmpFile).catch(() => {});
-      return res;
+    // 9. Multi-ecosystem package installation
+    this.register('install_package', 'Install packages across npm, pip, cargo, go, or gem', async ({ manager, packages }) => {
+      const mgr = manager.toLowerCase().trim();
+      let cmd = '';
+      if (mgr === 'npm') cmd = `npm install ${packages}`;
+      else if (mgr === 'pip' || mgr === 'python') cmd = `pip install ${packages}`;
+      else if (mgr === 'cargo' || mgr === 'rust') cmd = `cargo add ${packages}`;
+      else if (mgr === 'go') cmd = `go get ${packages}`;
+      else if (mgr === 'gem' || mgr === 'ruby') cmd = `gem install ${packages}`;
+      else {
+        return { success: false, stderr: `Unknown package manager: ${manager}` };
+      }
+      return await executeCommand(cmd);
     });
   }
 }
