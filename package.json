@@ -1,10 +1,12 @@
 {
-  "name": "inject-agent",
-  "version": "4.1.49",
-  "description": "Autonomous PowerShell and terminal coding agent v4.1.49 featuring 4 dedicated sub-agents (INJECT, CODE REVIEWER, ACCUMULATE, DIGEST), self-healing execution loop, and installable validated skill packs",
+  "name": "david-agent",
+  "version": "4.2.0",
+  "description": "David - Autonomous 4-Model Terminal & PowerShell Agent with self-healing code execution and extensible skill packs",
   "main": "src/index.js",
   "type": "module",
   "bin": {
+    "david": "bin/agent.js",
+    "david-agent": "bin/agent.js",
     "inject-agent": "bin/agent.js",
     "forge": "bin/agent.js"
   },
@@ -13,7 +15,16 @@
     "test": "node tests/clean-install.test.js",
     "test:clean-install": "node tests/clean-install.test.js"
   },
-  "keywords": ["agent", "powershell", "terminal", "cli", "v4.1.49", "swarm", "self-healing", "skill-packs"],
+  "keywords": [
+    "david",
+    "david-agent",
+    "agent",
+    "swarm",
+    "models",
+    "powershell",
+    "terminal",
+    "cli"
+  ],
   "author": "seun22470",
   "license": "MIT"
 }
