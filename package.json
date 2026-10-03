@@ -1,7 +1,7 @@
 {
   "name": "inject-agent",
-  "version": "1.1.1",
-  "description": "Autonomous PowerShell and terminal coding agent with dynamic multi-language code execution and zero API keys",
+  "version": "2.9.0",
+  "description": "Autonomous PowerShell and terminal coding agent v2.9 with 75 core brain skills, multi-language execution, and zero API key requirements",
   "main": "src/index.js",
   "type": "module",
   "bin": {
@@ -13,7 +13,7 @@
     "test": "node tests/clean-install.test.js",
     "test:clean-install": "node tests/clean-install.test.js"
   },
-  "keywords": ["agent", "terminal", "powershell", "cli", "coder", "multi-language", "scaffolding"],
+  "keywords": ["agent", "powershell", "terminal", "cli", "v2.9", "75-skills", "multi-language", "scaffolding"],
   "author": "seun22470",
   "license": "MIT"
 }
