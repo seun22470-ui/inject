@@ -3,6 +3,10 @@ import { skillsRegistry } from './skills.js';
 import { executeCommand, executeCode } from './executor.js';
 import { SUPPORTED_LANGUAGES, resolveLanguage } from './languages.js';
 import { brainManager } from './brain.js';
+import { agentSwarm, AGENT_PERSONAS } from './agents/swarm.js';
+import { SkillPackManager, VALIDATED_SKILL_PACKS } from './skill_packs.js';
+import { SelfHealingEngine } from './tools/self_healer.js';
+import { serveLocalSite, publishToCloud } from './tools/publisher.js';
 
 const c = {
   cyan: '\x1b[36m',
@@ -16,15 +20,14 @@ const c = {
 };
 
 function banner() {
-  const brainInfo = brainManager.getActiveBrainInfo();
-  const allSkills = skillsRegistry.list();
+  const current = agentSwarm.getCurrentAgent();
   console.log(`${c.cyan}${c.bold}
 ====================================================================
-  INJECT TERMINAL AGENT v2.9 | 75 Advanced Autonomous Brain Skills
+  INJECT TERMINAL AGENT v4.1.49 | 4-Agent Autonomous Swarm
 ====================================================================${c.reset}`);
-  console.log(`${c.dim}Runtime Matrix: 75 Registered Skills across Thinking, Research, Writing, Debugging, Automation${c.reset}`);
-  console.log(`${c.dim}Brain Engine: ${brainInfo.info}${c.reset}`);
-  console.log(`${c.dim}Commands: ${c.yellow}/skills${c.dim}, ${c.yellow}/build <prompt>${c.dim}, ${c.yellow}/skill install <name> <code>${c.dim}, ${c.yellow}/key <provider> <key>${c.dim}, ${c.yellow}/run <lang> <code>${c.reset}\n`);
+  console.log(`${c.green}${c.bold}Active Agent:${c.reset} [${current.name}] - ${current.title}`);
+  console.log(`${c.dim}Agents: ${c.yellow}INJECT${c.dim} (Commander) | ${c.yellow}CODE REVIEWER${c.dim} (Self-Healing) | ${c.yellow}ACCUMULATE${c.dim} (Packs & Web) | ${c.yellow}DIGEST${c.dim} (Memory)${c.reset}`);
+  console.log(`${c.dim}Commands: ${c.yellow}/agent <name>${c.dim}, ${c.yellow}/packs${c.dim}, ${c.yellow}/heal <code>${c.dim}, ${c.yellow}/serve${c.dim}, ${c.yellow}/skills${c.dim}, ${c.yellow}/help${c.reset}\n`);
 }
 
 export async function startAgent() {
@@ -35,9 +38,10 @@ export async function startAgent() {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    prompt: `${c.magenta}${c.bold}agent[v2.9]> ${c.reset}`
+    prompt: () => `${c.magenta}${c.bold}${agentSwarm.getCurrentAgent().name.toLowerCase()}> ${c.reset}`
   });
 
+  rl.setPrompt(`${c.magenta}${c.bold}${agentSwarm.getCurrentAgent().name.toLowerCase()}> ${c.reset}`);
   rl.prompt();
 
   rl.on('line', async (line) => {
@@ -48,57 +52,128 @@ export async function startAgent() {
     }
 
     if (input === '/exit' || input === 'exit') {
-      console.log(`${c.yellow}Exiting agent session. Goodbye!${c.reset}`);
+      console.log(`${c.yellow}Exiting v4.1.49 multi-agent session. Goodbye!${c.reset}`);
       process.exit(0);
     }
 
-    if (input === '/skills' || input === '/help' || input === 'help') {
-      const grouped = skillsRegistry.getByCategory();
-      console.log(`\n${c.bold}=== 75 CORE SKILLS MATRIX (v2.9) ===${c.reset}`);
-      let index = 1;
-      for (const [cat, skills] of Object.entries(grouped)) {
-        console.log(`\n${c.cyan}${c.bold}[${cat.toUpperCase()}]${c.reset}`);
-        for (const s of skills) {
-          const typeTag = s.type === 'custom' ? `${c.magenta}[CUSTOM]${c.reset}` : '';
-          console.log(`  ${c.green}${String(index++).padStart(2, ' ')}. ${s.name.padEnd(28)}${c.reset} ${typeTag}: ${s.description}`);
-        }
-      }
-
-      console.log(`\n${c.bold}Agent Command Shortcuts:${c.reset}`);
-      console.log(`  ${c.cyan}/build <prompt>${c.reset}              : Scaffolds project files, executes tests, reports errors`);
-      console.log(`  ${c.cyan}/skill install <name> <code>${c.reset} : Installs custom dynamic skill`);
-      console.log(`  ${c.cyan}/key <provider> <key>${c.reset}       : Optional API key (Opus, GPT) to boost thinking`);
-      console.log(`  ${c.cyan}/run <lang> <code>${c.reset}           : Multi-language runner (Python, Node, TS, Go, Rust, C, C++, PHP)`);
-      console.log(`  ${c.cyan}/py <code> | /js <code> | /go <code> | /rust <code> | /c <code> | /ps <code>${c.reset}\n`);
+    // Switch between the 4 agents
+    if (input.startsWith('/agent ') || input.startsWith('agent ')) {
+      const target = input.replace(/^\/?agent\s+/i, '').trim();
+      const next = agentSwarm.setActive(target);
+      console.log(`\n${c.green}${c.bold}Switched Active Persona to [${next.name}]${c.reset}`);
+      console.log(`${c.dim}Role: ${next.role}${c.reset}\n`);
+      rl.setPrompt(`${c.magenta}${c.bold}${next.name.toLowerCase()}> ${c.reset}`);
       rl.prompt();
       return;
     }
 
-    // Natural Key Setter (e.g. "this key is opus: sk-ant-..." or "/key opus sk-ant-...")
+    // /packs - Searchable skill packs
+    if (input === '/packs' || input.startsWith('/packs ') || input.startsWith('/pack ')) {
+      const q = input.replace(/^\/packs?\s*/i, '').trim();
+      console.log(`\n${c.bold}=== VALIDATED INSTALLABLE SKILL PACKS ===${c.reset}`);
+      const packs = q ? SkillPackManager.searchPacks(q) : Object.entries(VALIDATED_SKILL_PACKS).map(([id, p]) => ({ id, ...p }));
+      packs.forEach(p => {
+        console.log(`  ${c.cyan}${p.id.padEnd(20)}${c.reset} : ${p.name}`);
+        console.log(`    ${c.dim}${p.description}${c.reset}`);
+        console.log(`    ${c.green}Skills: ${p.skills.map(s => s.name).join(', ')}${c.reset}`);
+      });
+      console.log(`\n${c.dim}To install a pack, type: ${c.yellow}/pack install <id>${c.dim} (e.g. /pack install devops-cloud)${c.reset}\n`);
+      rl.prompt();
+      return;
+    }
+
+    // /pack install <id>
+    if (input.startsWith('/pack install ') || input.startsWith('/install-pack ')) {
+      const packId = input.replace(/^(\/?pack install|\/?install-pack)\s+/i, '').trim();
+      console.log(`${c.cyan}[ACCUMULATE Agent]: Installing skill pack '${packId}'...${c.reset}`);
+      try {
+        const res = await SkillPackManager.installPack(packId, skillsRegistry);
+        console.log(`${c.green}${c.bold}Skill Pack '${res.pack}' successfully installed!${c.reset}`);
+        console.log(`Skills registered: ${res.installedSkills.join(', ')}`);
+      } catch (e) {
+        console.error(`${c.red}Installation failed: ${e.message}${c.reset}`);
+      }
+      rl.prompt();
+      return;
+    }
+
+    // /heal <code> - Autonomous Self-Healing Execution (Code Reviewer)
+    if (input.startsWith('/heal ') || input.startsWith('heal ')) {
+      const code = input.replace(/^\/?heal\s+/i, '').trim();
+      console.log(`${c.cyan}[CODE REVIEWER Agent]: Running with automated error detection & self-healing...${c.reset}`);
+      const res = await SelfHealingEngine.runWithSelfCorrection({ code });
+      if (res.success) {
+        console.log(`${c.green}${c.bold}Execution succeeded after ${res.attemptsRequired} attempt(s)!${c.reset}`);
+        if (res.output) console.log(res.output);
+        if (res.attemptsRequired > 1) {
+          console.log(`${c.yellow}[Self-Healing Fix Applied]:${c.reset}\n${res.finalCode}`);
+        }
+      } else {
+        console.log(`${c.red}${c.bold}Self-correction failed after ${res.attemptsRequired} attempts:${c.reset} ${res.error}`);
+      }
+      rl.prompt();
+      return;
+    }
+
+    // /serve [dir] [port] - Local Web Server
+    if (input.startsWith('/serve')) {
+      const parts = input.split(' ');
+      const dir = parts[1] || './generated-app';
+      const port = parseInt(parts[2] || '5000', 10);
+      console.log(`${c.cyan}[INJECT Agent]: Starting embedded local web server...${c.reset}`);
+      const res = await serveLocalSite({ dir, port });
+      console.log(`${c.green}${c.bold}${res.message}${c.reset}`);
+      rl.prompt();
+      return;
+    }
+
+    // /publish [dir] [provider]
+    if (input.startsWith('/publish')) {
+      const parts = input.split(' ');
+      const dir = parts[1] || './generated-app';
+      const provider = parts[2] || 'vercel';
+      console.log(`${c.cyan}[INJECT Agent]: Publishing to cloud via ${provider}...${c.reset}`);
+      const res = await publishToCloud({ dir, provider });
+      if (res.stdout) console.log(res.stdout);
+      if (res.stderr) console.error(res.stderr);
+      rl.prompt();
+      return;
+    }
+
+    // /skills or /help
+    if (input === '/skills' || input === '/help' || input === 'help') {
+      const grouped = skillsRegistry.getByCategory();
+      console.log(`\n${c.bold}=== INJECT v4.1.49 CAPABILITY MATRIX ===${c.reset}`);
+      console.log(`\n${c.magenta}${c.bold}[4 DEDICATED SUB-AGENTS]${c.reset}`);
+      Object.values(AGENT_PERSONAS).forEach(a => {
+        console.log(`  ${c.green}${a.name.padEnd(16)}${c.reset} : ${a.title} - ${a.role}`);
+      });
+
+      console.log(`\n${c.magenta}${c.bold}[SEARCHABLE SKILL PACKS]${c.reset}`);
+      Object.keys(VALIDATED_SKILL_PACKS).forEach(p => {
+        console.log(`  ${c.cyan}${p.padEnd(18)}${c.reset} : ${VALIDATED_SKILL_PACKS[p].name}`);
+      });
+
+      console.log(`\n${c.magenta}${c.bold}[CORE COMMANDS]${c.reset}`);
+      console.log(`  ${c.cyan}/agent <name>${c.reset}          : Switch between INJECT, CODE REVIEWER, ACCUMULATE, DIGEST`);
+      console.log(`  ${c.cyan}/packs [query]${c.reset}        : Search and view validated installable skill packs`);
+      console.log(`  ${c.cyan}/pack install <id>${c.reset}    : Install validated pack without empty placeholders`);
+      console.log(`  ${c.cyan}/heal <code>${c.reset}          : Auto error detection, self-correction, & testing loop`);
+      console.log(`  ${c.cyan}/build <prompt>${c.reset}       : Scaffold project files, run, & report errors`);
+      console.log(`  ${c.cyan}/serve [dir] [port]${c.reset}   : Launch built-in local web server`);
+      console.log(`  ${c.cyan}/run <lang> <code>${c.reset}    : Multi-language runner`);
+      console.log(`  ${c.cyan}/key <provider> <key>${c.reset} : Optional brain key (e.g. opus) to boost reasoning\n`);
+      rl.prompt();
+      return;
+    }
+
+    // Natural Key Setter (e.g. "this key is opus: sk-ant-...")
     const keyMatch = input.match(/^(?:\/key|key\s+is|this\s+key\s+is|use\s+key)\s+([a-zA-Z0-9_-]+)[:\s]+([a-zA-Z0-9_.-]+)/i);
     if (keyMatch) {
       const provider = keyMatch[1];
       const keyVal = keyMatch[2];
       await brainManager.setKey(provider, keyVal);
       console.log(`${c.green}${c.bold}Brain key registered for ${provider.toUpperCase()}!${c.reset}`);
-      console.log(`${c.dim}Optional cloud reasoning boosted. Agent operates 100% autonomously offline when key is omitted.${c.reset}`);
-      rl.prompt();
-      return;
-    }
-
-    // Install dynamic skill: /skill install <name> <code>
-    if (input.startsWith('/skill install ') || input.startsWith('install skill ')) {
-      const payload = input.replace(/^(\/skill install|install skill)\s+/i, '').trim();
-      const firstSpace = payload.indexOf(' ');
-      if (firstSpace === -1) {
-        console.log(`${c.red}Usage: /skill install <skill_name> <javascript_code>${c.reset}`);
-        rl.prompt();
-        return;
-      }
-      const skillName = payload.slice(0, firstSpace).trim();
-      const skillCode = payload.slice(firstSpace).trim();
-      const res = await skillsRegistry.installSkill({ name: skillName, code: skillCode });
-      console.log(`${c.green}${res.message}${c.reset}`);
       rl.prompt();
       return;
     }
@@ -106,29 +181,22 @@ export async function startAgent() {
     // /build <prompt>
     if (input.startsWith('/build ') || input.startsWith('build ')) {
       const promptText = input.replace(/^\/?build\s+/i, '').trim();
-      console.log(`${c.cyan}[v2.9 Scaffolding Engine]: "${promptText}"...${c.reset}`);
-
+      console.log(`${c.cyan}[INJECT Agent]: Scaffolding "${promptText}"...${c.reset}`);
       const builder = skillsRegistry.get('build_project');
       const res = await builder.handler({ prompt: promptText });
       if (res.success) {
         console.log(`${c.green}${c.bold}Project successfully scaffolded and verified!${c.reset}`);
-        console.log(`Workspace: ${c.dim}${res.workspacePath}${c.reset}`);
+        console.log(`Workspace: ${res.workspacePath}`);
         console.log(`Files created: ${res.generatedFiles.join(', ')}`);
-        if (res.errors.length > 0) {
-          console.log(`${c.yellow}Runtime feedback/warnings:${c.reset}`);
-          console.log(JSON.stringify(res.errors, null, 2));
-        } else {
-          console.log(`${c.green}Zero errors encountered during code execution verification.${c.reset}`);
-        }
       } else {
-        console.log(`${c.red}${c.bold}Execution verification detected errors:${c.reset}`);
+        console.log(`${c.red}${c.bold}CODE REVIEWER detected errors:${c.reset}`);
         console.log(JSON.stringify(res.errors, null, 2));
       }
       rl.prompt();
       return;
     }
 
-    // Dynamic execution via /run <lang> <code> OR /run <code>
+    // Dynamic execution via /run <lang> <code>
     if (input.startsWith('/run ') || input.startsWith('/run\n')) {
       const rest = input.slice(5).trim();
       const firstWord = rest.split(/\s+/)[0];
@@ -149,7 +217,7 @@ export async function startAgent() {
       return;
     }
 
-    // Language shorthands
+    // Shorthand language commands
     const langAliases = {
       '/py': 'python',
       '/python': 'python',
@@ -158,17 +226,12 @@ export async function startAgent() {
       '/ts': 'typescript',
       '/go': 'go',
       '/rust': 'rust',
-      '/rs': 'rust',
       '/c': 'c',
       '/cpp': 'cpp',
-      '/c++': 'cpp',
       '/ruby': 'ruby',
-      '/rb': 'ruby',
       '/php': 'php',
-      '/java': 'java',
-      '/bash': 'bash',
-      '/sh': 'bash',
-      '/ps': 'powershell'
+      '/ps': 'powershell',
+      '/bash': 'bash'
     };
 
     for (const [cmdPrefix, lang] of Object.entries(langAliases)) {
@@ -182,90 +245,23 @@ export async function startAgent() {
       }
     }
 
-    // Code blocks pasted
-    if (input.startsWith('```')) {
-      console.log(`${c.dim}[Detected Code Block, auto-executing]...${c.reset}`);
-      const res = await executeCode({ code: input });
-      displayCodeResult(res);
-      rl.prompt();
-      return;
-    }
-
-    // Web Search
-    if (input.startsWith('/search ')) {
-      const q = input.slice(8).trim();
-      console.log(`${c.cyan}[Searching web]: ${q}...${c.reset}`);
-      const res = await skillsRegistry.get('web_searcher').handler({ query: q, limit: 5 });
-      res.forEach((r, i) => {
-        console.log(`\n${c.green}[${i+1}] ${r.title}${c.reset}`);
-        if (r.url) console.log(`    ${c.dim}${r.url}${c.reset}`);
-        console.log(`    ${r.snippet}`);
-      });
-      console.log('');
-      rl.prompt();
-      return;
-    }
-
-    // Shell command
-    if (input.startsWith('/exec ')) {
-      const cmd = input.slice(6).trim();
-      console.log(`${c.dim}[Running in PowerShell/Shell]: ${cmd}${c.reset}`);
-      const res = await executeCommand(cmd);
-      if (res.stdout) console.log(res.stdout);
-      if (res.stderr) console.error(`${c.red}${res.stderr}${c.reset}`);
-      rl.prompt();
-      return;
-    }
-
-    // Package managers
-    const lower = input.toLowerCase();
-    if (lower.startsWith('npm install ') || lower.startsWith('install npm ')) {
-      const pkg = input.replace(/^(npm install|install npm)\s+/i, '').trim();
-      console.log(`${c.cyan}[Installing NPM package]: ${pkg}${c.reset}`);
-      const res = await skillsRegistry.get('package_installer').handler({ manager: 'npm', packages: pkg });
-      if (res.stdout) console.log(res.stdout);
-      if (res.stderr) console.error(res.stderr);
-      rl.prompt();
-      return;
-    }
-
-    if (lower.startsWith('pip install ') || lower.startsWith('install pip ')) {
-      const pkg = input.replace(/^(pip install|install pip)\s+/i, '').trim();
-      console.log(`${c.cyan}[Installing Python package]: ${pkg}${c.reset}`);
-      const res = await skillsRegistry.get('package_installer').handler({ manager: 'pip', packages: pkg });
-      if (res.stdout) console.log(res.stdout);
-      if (res.stderr) console.error(res.stderr);
-      rl.prompt();
-      return;
-    }
-
-    // Direct skill invocation by ID or name
-    const words = input.split(' ');
-    const potentialSkill = skillsRegistry.get(words[0]);
-    if (potentialSkill) {
-      console.log(`${c.cyan}[Invoking Skill]: ${potentialSkill.name}${c.reset}`);
-      const payload = input.slice(words[0].length).trim();
-      try {
-        const res = await potentialSkill.handler({ prompt: payload, task: payload, query: payload });
-        console.log(JSON.stringify(res, null, 2));
-      } catch (e) {
-        console.error(`${c.red}Skill error: ${e.message}${c.reset}`);
+    // Auto-code detection
+    if (/^(print\(|console\.log\(|def\s+|function\s+|const\s+|let\s+|package\s+main|#include|fn\s+main)/.test(input)) {
+      console.log(`${c.dim}[Auto-detected code snippet, executing with self-healing]...${c.reset}`);
+      const res = await SelfHealingEngine.runWithSelfCorrection({ code: input });
+      if (res.success) {
+        console.log(`${c.green}${c.bold}=== EXECUTION SUCCESS ===${c.reset}`);
+        if (res.output) console.log(res.output);
+      } else {
+        console.log(`${c.red}${c.bold}=== EXECUTION FAILED ===${c.reset}`);
+        console.error(res.error);
       }
       rl.prompt();
       return;
     }
 
-    // Auto-code detection
-    if (/^(print\(|console\.log\(|def\s+|function\s+|const\s+|let\s+|package\s+main|#include|fn\s+main)/.test(input)) {
-      console.log(`${c.dim}[Auto-detected code snippet, running]...${c.reset}`);
-      const res = await executeCode({ code: input });
-      displayCodeResult(res);
-      rl.prompt();
-      return;
-    }
-
-    console.log(`${c.yellow}[v2.9 Engine]:${c.reset} ${input}`);
-    console.log(`${c.dim}Type ${c.yellow}/skills${c.dim} to see all 75 skills, ${c.yellow}/build <prompt>${c.dim} to generate apps, or ${c.yellow}/help${c.reset}`);
+    console.log(`${c.yellow}[${agentSwarm.getCurrentAgent().name}]:${c.reset} ${input}`);
+    console.log(`${c.dim}Commands: ${c.yellow}/agent <name>${c.dim}, ${c.yellow}/packs${c.dim}, ${c.yellow}/heal <code>${c.dim}, ${c.yellow}/build <prompt>${c.dim}, or ${c.yellow}/help${c.reset}`);
     rl.prompt();
   });
 }
