@@ -1,6 +1,7 @@
 import { executeCommand, executeCode, writeFile, readFile, listDirectory } from './executor.js';
 import { SUPPORTED_LANGUAGES } from './languages.js';
 import { webSearch, extractPage, inspectSite } from './tools/web.js';
+import { buildProjectFromPrompt } from './tools/project_builder.js';
 
 class SkillRegistry {
   constructor() {
@@ -24,38 +25,43 @@ class SkillRegistry {
   }
 
   registerBuiltInSkills() {
-    // 1. Dynamic Multi-Language Code Runner
+    // 1. Build Project from Prompt
+    this.register('build_project', 'Turns prompts into real project files, runs code in workspace, and reports errors', async ({ prompt, targetDir = './generated-app', files, autoRun = true }) => {
+      return await buildProjectFromPrompt({ prompt, targetDir, files, autoRun });
+    });
+
+    // 2. Dynamic Multi-Language Code Runner
     this.register('run_code', 'Dynamically execute code in Python, Node/TS, Go, Rust, C/C++, Ruby, PHP, Java, PowerShell or Bash', async ({ code, language }) => {
       return await executeCode({ code, language });
     });
 
-    // 2. Web Search
+    // 3. Web Search
     this.register('search', 'DuckDuckGo web search without any API keys', async ({ query, limit = 5 }) => {
       return await webSearch(query, limit);
     });
 
-    // 3. Extract Webpage
+    // 4. Extract Webpage
     this.register('extract', 'Extract headings, meta, tables, and clean text from any URL', async ({ url }) => {
       return await extractPage(url);
     });
 
-    // 4. Inspect Site
+    // 5. Inspect Site
     this.register('inspect', 'Inspect target website technologies (React, Next.js, Vue, Tailwind, Stripe, etc.)', async ({ url }) => {
       return await inspectSite(url);
     });
 
-    // 5. Terminal / PowerShell Command Exec
+    // 6. Terminal / PowerShell Command Exec
     this.register('exec', 'Run any PowerShell or shell command directly on the host', async ({ command }) => {
       return await executeCommand(command);
     });
 
-    // 6. Write File
+    // 7. Write File
     this.register('write_file', 'Write or overwrite code to a specified file path', async ({ path: filePath, content }) => {
       const writtenPath = await writeFile(filePath, content);
       return { success: true, message: `File saved: ${writtenPath}` };
     });
 
-    // 7. Read File
+    // 8. Read File
     this.register('read_file', 'Read contents of a file', async ({ path: filePath }) => {
       try {
         const content = await readFile(filePath);
@@ -65,7 +71,7 @@ class SkillRegistry {
       }
     });
 
-    // 8. List Directory
+    // 9. List Directory
     this.register('ls', 'List files in current or specified directory', async ({ path: dirPath = '.' }) => {
       try {
         const entries = await listDirectory(dirPath);
@@ -75,7 +81,7 @@ class SkillRegistry {
       }
     });
 
-    // 9. Multi-ecosystem package installation
+    // 10. Multi-ecosystem package installation
     this.register('install_package', 'Install packages across npm, pip, cargo, go, or gem', async ({ manager, packages }) => {
       const mgr = manager.toLowerCase().trim();
       let cmd = '';
