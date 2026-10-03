@@ -1,3 +1,4 @@
+import { translateText } from './tools/translator.js';
 import readline from 'readline';
 import { skillsRegistry } from './skills.js';
 import { executeCommand, executeCode } from './executor.js';
@@ -245,6 +246,28 @@ export async function startAgent() {
   ${c.yellow}/serve [dir] [port]${c.reset}          : Launch preview HTTP server
   ${c.yellow}/skills${c.reset}                      : Complete skills matrix
   ${c.yellow}/exit${c.reset}                        : Exit session\n`);
+      promptUser();
+      return;
+    }
+
+        // /translate <text> to <language>
+    if (input.startsWith('/translate ') || input.startsWith('translate ')) {
+      const match = input.match(/^\/?translate\s+(.+?)\s+to\s+([a-zA-Z\-_]+)$/i);
+      if (!match) {
+        console.log(`${c.yellow}Usage: /translate <text> to <language> (e.g. /translate Hello world to Spanish)${c.reset}`);
+        promptUser();
+        return;
+      }
+      const textToTranslate = match[1];
+      const targetLang = match[2];
+      creditsManager.deduct(5, `Translate text to ${targetLang}`, 'DIGEST');
+      console.log(`${c.cyan}[David Translation]: Translating to ${targetLang}...${c.reset}`);
+      const trResult = await translateText(textToTranslate, targetLang);
+      if (trResult.success) {
+        console.log(`\n${c.green}${c.bold}Translation (${targetLang}):${c.reset} ${trResult.translatedText}\n`);
+      } else {
+        console.log(`\n${c.red}Translation error: ${trResult.error}${c.reset}\n`);
+      }
       promptUser();
       return;
     }
