@@ -7,6 +7,8 @@ import { davidSwarm, AGENT_PERSONAS } from './agents/swarm.js';
 import { SkillPackManager, VALIDATED_SKILL_PACKS } from './skill_packs.js';
 import { SelfHealingEngine } from './tools/self_healer.js';
 import { serveLocalSite, publishToCloud } from './tools/publisher.js';
+import { creditsManager } from './credits.js';
+import { AISeerInspector, taskScheduler } from './tools/automator.js';
 
 const c = {
   cyan: '\x1b[36m',
@@ -21,19 +23,23 @@ const c = {
 
 function banner() {
   const current = davidSwarm.getCurrentModel();
+  const balance = creditsManager.getBalance().toLocaleString();
   console.log(`${c.cyan}${c.bold}
 ====================================================================
   DAVID AGENT v4.2.0 | Autonomous 4-Model Unified Intelligence
 ====================================================================${c.reset}`);
-  console.log(`${c.green}${c.bold}General Name:${c.reset} David`);
+  console.log(`${c.green}${c.bold}Identity:${c.reset} David (Unified Agent)`);
   console.log(`${c.cyan}${c.bold}Active Model:${c.reset} [${current.name}] - ${current.modelTitle}`);
-  console.log(`${c.dim}Internal Models: ${c.yellow}INJECT${c.dim} (Commander) | ${c.yellow}CODE REVIEWER${c.dim} (Self-Healing) | ${c.yellow}ACCUMULATE${c.dim} (Packs & Web) | ${c.yellow}DIGEST${c.dim} (Memory)${c.reset}`);
-  console.log(`${c.dim}Commands: ${c.yellow}/model <name>${c.dim}, ${c.yellow}/models${c.dim}, ${c.yellow}/packs${c.dim}, ${c.yellow}/heal <code>${c.dim}, ${c.yellow}/serve${c.dim}, ${c.yellow}/skills${c.dim}, ${c.yellow}/help${c.reset}\n`);
+  console.log(`${c.yellow}${c.bold}Credits Balance:${c.reset} ${balance} credits | Tier: ${creditsManager.getTier()}`);
+  console.log(`${c.dim}Internal Models: ${c.yellow}INJECT${c.dim} | ${c.yellow}CODE REVIEWER${c.dim} | ${c.yellow}ACCUMULATE${c.dim} | ${c.yellow}DIGEST${c.reset}`);
+  console.log(`${c.dim}AI Capabilities: ${c.green}AI Seer DOM Inspector${c.dim}, ${c.green}24h/78h Task Scheduler${c.dim}, ${c.green}Self-Healing${c.reset}`);
+  console.log(`${c.dim}Commands: ${c.yellow}/model <name>${c.dim}, ${c.yellow}/credits${c.dim}, ${c.yellow}/seer <url>${c.dim}, ${c.yellow}/automate <task> for <time>${c.dim}, ${c.yellow}/tasks${c.dim}, ${c.yellow}/help${c.reset}\n`);
 }
 
 function getPromptStr() {
   const model = davidSwarm.getCurrentModel().name;
-  return `${c.magenta}${c.bold}David [${model}]> ${c.reset}`;
+  const bal = creditsManager.getBalance().toLocaleString();
+  return `${c.magenta}${c.bold}David [${model} | ${bal}cr]> ${c.reset}`;
 }
 
 export async function startAgent() {
@@ -65,130 +71,193 @@ export async function startAgent() {
       process.exit(0);
     }
 
-    // Switch between the 4 models
-    if (input.startsWith('/model ') || input.startsWith('model ') || input.startsWith('/agent ') || input.startsWith('agent ')) {
-      const target = input.replace(/^(\/?model|\/?agent)\s+/i, '').trim();
-      const next = davidSwarm.setActive(target);
-      console.log(`\n${c.green}${c.bold}David switched active model to [${next.name}]${c.reset}`);
-      console.log(`${c.dim}Model Title: ${next.modelTitle}${c.reset}`);
-      console.log(`${c.dim}Role: ${next.role}${c.reset}\n`);
+    // Credits
+    if (input === '/credits' || input.startsWith('/credits ')) {
+      const parts = input.split(' ').filter(Boolean);
+      if (parts[1] === 'add' && parts[2]) {
+        const added = creditsManager.add(Number(parts[2]), 'User top-up');
+        console.log(`\n${c.green}${c.bold}✓ Added ${Number(parts[2]).toLocaleString()} credits!${c.reset} (New balance: ${added.balance.toLocaleString()} credits)\n`);
+      } else {
+        console.log(`\n${c.bold}=== DAVID CREDITS WALLET ===${c.reset}`);
+        console.log(creditsManager.formatSummary());
+        console.log(`\n${c.dim}Recent Transactions:${c.reset}`);
+        for (const tx of creditsManager.getHistory(5)) {
+          console.log(`  [${tx.model}] ${tx.type === 'ADD' ? '+' : '-'}${tx.amount} cr: ${tx.reason}`);
+        }
+        console.log(`\n${c.dim}Top-up: ${c.yellow}/credits add <amount>${c.reset}\n`);
+      }
       promptUser();
       return;
     }
 
-    if (input === '/models' || input === '/agents') {
+    // /seer <url> - AI Seer Vision & Invisible Elements Inspector
+    if (input.startsWith('/seer ') || input.startsWith('seer ')) {
+      const targetUrl = input.replace(/^(\/?seer)\s+/i, '').trim();
+      const deduct = creditsManager.deduct(20, `AI Seer inspection: ${targetUrl}`, 'ACCUMULATE');
+      if (!deduct.success) {
+        console.log(`${c.red}${deduct.error}${c.reset}`);
+        promptUser();
+        return;
+      }
+      console.log(`\n${c.cyan}${c.bold}[David AI Seer]: Inspecting DOM & hidden structures for ${targetUrl}...${c.reset}`);
+      try {
+        const report = await AISeerInspector.inspectPage(targetUrl);
+        console.log(`\n${c.green}${c.bold}=== AI SEER INSPECTION REPORT ===${c.reset}`);
+        console.log(`Title: ${report.title}`);
+        console.log(`Interactive Links Found: ${report.interactive.linksCount}`);
+        console.log(`Interactive Forms Detected: ${report.forms.length}`);
+        console.log(`\n${c.yellow}Invisible / Hidden Elements:${c.reset}`);
+        console.log(`  • Hidden Form Inputs: ${report.aiSeer.hiddenInputsCount}`);
+        console.log(`  • Hidden CSS Containers (display:none): ${report.aiSeer.hiddenContainersCount}`);
+        console.log(`  • Structured JSON-LD Data Tokens: ${report.aiSeer.structuredDataTokens}`);
+        if (report.aiSeer.hiddenContainers.length > 0) {
+          console.log(`\n${c.dim}Preview of Hidden Containers:${c.reset}`);
+          report.aiSeer.hiddenContainers.slice(0, 3).forEach((h, i) => {
+            console.log(`  [${i+1}] <${h.tag}>: "${h.preview}..."`);
+          });
+        }
+      } catch (err) {
+        console.error(`${c.red}AI Seer failed: ${err.message}${c.reset}`);
+      }
+      promptUser();
+      return;
+    }
+
+    // /automate <task> for <time> (e.g. 24hrs, 78hrs)
+    if (input.startsWith('/automate ') || input.startsWith('automate ')) {
+      const match = input.match(/^\/?automate\s+(.+?)\s+for\s+(\d+\w+)(?:\s+interval\s+(\d+))?/i);
+      if (!match) {
+        console.log(`${c.yellow}Usage: /automate <task description> for <24hrs|78hrs|30m> [interval <seconds>]${c.reset}`);
+        promptUser();
+        return;
+      }
+      const taskName = match[1];
+      const duration = match[2];
+      const intervalSec = Number(match[3]) || 60;
+      const deduct = creditsManager.deduct(50, `Scheduled automation: ${taskName} for ${duration}`, 'INJECT');
+      if (!deduct.success) {
+        console.log(`${c.red}${deduct.error}${c.reset}`);
+        promptUser();
+        return;
+      }
+
+      const scheduled = taskScheduler.startTask({
+        name: taskName,
+        durationStr: duration,
+        intervalSeconds: intervalSec,
+        taskFn: async ({ tick, elapsedMs, remainingMs }) => {
+          const remHours = (remainingMs / (3600 * 1000)).toFixed(1);
+          console.log(`\n${c.cyan}[David Automation Heartbeat]: '${taskName}' tick #${tick} running. Remaining time: ${remHours} hrs${c.reset}`);
+        }
+      });
+
+      console.log(`\n${c.green}${c.bold}✓ Automation Scheduled!${c.reset}`);
+      console.log(`Task ID: ${scheduled.id}`);
+      console.log(`Target: ${scheduled.name} for ${scheduled.durationStr}`);
+      console.log(`Scheduled Completion: ${scheduled.expectedEndTime}`);
+      console.log(`${c.dim}Check active runs with: ${c.yellow}/tasks${c.reset}\n`);
+      promptUser();
+      return;
+    }
+
+    // /tasks
+    if (input === '/tasks' || input === 'tasks') {
+      const list = taskScheduler.listTasks();
+      console.log(`\n${c.bold}=== DAVID RUNNING AUTOMATION TASKS ===${c.reset}`);
+      if (list.length === 0) {
+        console.log(`${c.dim}No active automation tasks running.${c.reset}`);
+      } else {
+        list.forEach(t => {
+          console.log(`  ${c.cyan}${t.id}${c.reset} | ${t.name} (${t.status})`);
+          console.log(`    Duration: ${t.durationStr} | Ticks: ${t.ticks} | Ends: ${t.expectedEndTime}`);
+        });
+      }
+      console.log('');
+      promptUser();
+      return;
+    }
+
+    // /model <name>
+    if (input.startsWith('/model ') || input.startsWith('model ')) {
+      const target = input.replace(/^(\/?model)\s+/i, '').trim();
+      const next = davidSwarm.setActive(target);
+      console.log(`\n${c.green}${c.bold}David switched active model to [${next.name}]${c.reset}`);
+      console.log(`${c.dim}${next.modelTitle} - ${next.role}${c.reset}\n`);
+      promptUser();
+      return;
+    }
+
+    // /models
+    if (input === '/models' || input === 'models') {
       console.log(`\n${c.bold}=== DAVID'S 4 INTERNAL MODELS ===${c.reset}`);
       for (const m of davidSwarm.getAllModels()) {
         const activeMarker = m.name === davidSwarm.getCurrentModel().name ? `${c.green}(ACTIVE)${c.reset}` : '';
         console.log(`  ${c.cyan}${m.name.padEnd(16)}${c.reset} ${activeMarker}`);
         console.log(`    ${c.bold}${m.modelTitle}${c.reset}`);
-        console.log(`    ${c.dim}${m.role}${c.reset}`);
+        console.log(`    ${c.dim}${m.role} [Cost: ${m.costPerRun} cr]${c.reset}`);
       }
-      console.log(`\n${c.dim}Switch model: ${c.yellow}/model <name>${c.dim} (e.g. /model reviewer)${c.reset}\n`);
+      console.log('');
       promptUser();
       return;
     }
 
-    // /packs - Searchable skill packs
-    if (input === '/packs' || input.startsWith('/packs ') || input.startsWith('/pack ')) {
-      const q = input.replace(/^\/packs?\s*/i, '').trim();
-      if (!q.startsWith('install')) {
-        console.log(`\n${c.bold}=== VALIDATED INSTALLABLE SKILL PACKS ===${c.reset}`);
-        const packs = q ? SkillPackManager.searchPacks(q) : Object.entries(VALIDATED_SKILL_PACKS).map(([id, p]) => ({ id, ...p }));
-        packs.forEach(p => {
-          console.log(`  ${c.cyan}${p.id.padEnd(20)}${c.reset} : ${p.name}`);
-          console.log(`    ${c.dim}${p.description}${c.reset}`);
-          console.log(`    ${c.green}Skills: ${p.skills.map(s => s.name).join(', ')}${c.reset}`);
-        });
-        console.log(`\n${c.dim}To install a pack, type: ${c.yellow}/pack install <id>${c.dim} (e.g. /pack install devops-cloud)${c.reset}\n`);
-        promptUser();
-        return;
-      }
-    }
-
-    // /pack install <id>
-    if (input.startsWith('/pack install ') || input.startsWith('/install-pack ')) {
-      const packId = input.replace(/^(\/?pack install|\/?install-pack)\s+/i, '').trim();
-      console.log(`${c.cyan}[David - Model ACCUMULATE]: Installing skill pack '${packId}'...${c.reset}`);
-      try {
-        const res = await SkillPackManager.installPack(packId, skillsRegistry);
-        console.log(`${c.green}${c.bold}Skill Pack '${res.pack}' successfully installed!${c.reset}`);
-        console.log(`Skills registered: ${res.installedSkills.join(', ')}`);
-      } catch (e) {
-        console.error(`${c.red}Installation failed: ${e.message}${c.reset}`);
-      }
-      promptUser();
-      return;
-    }
-
-    // /heal <code> - Autonomous Self-Healing Execution (Code Reviewer)
+    // /heal <code>
     if (input.startsWith('/heal ') || input.startsWith('heal ')) {
       const codeSnippet = input.replace(/^(\/?heal)\s+/i, '').trim();
-      console.log(`${c.cyan}[David - Model CODE REVIEWER]: Initiating self-healing execution loop...${c.reset}`);
+      creditsManager.deduct(30, 'Self-healing run', 'CODE REVIEWER');
+      console.log(`${c.cyan}[David - Model CODE REVIEWER]: Running self-healing loop...${c.reset}`);
       try {
         const result = await SelfHealingEngine.runWithSelfCorrection({ code: codeSnippet, language: 'javascript' });
-        console.log(`\n${result.success ? c.green : c.yellow}${c.bold}=== SELF-HEALING REPORT ===${c.reset}`);
-        console.log(`Status: ${result.success ? 'RESOLVED & VERIFIED' : 'UNRESOLVED'}`);
-        console.log(`Attempts: ${result.attempts}`);
-        console.log(`Changes: ${result.fixesApplied.join(', ') || 'No patch needed'}`);
-        if (result.stdout) console.log(`Output:\n${result.stdout}`);
+        console.log(`\n${c.green}${c.bold}Status: ${result.success ? 'RESOLVED' : 'UNRESOLVED'}${c.reset}`);
+        if (result.output) console.log(result.output);
       } catch (e) {
-        console.error(`${c.red}Reviewer loop error: ${e.message}${c.reset}`);
+        console.error(`${c.red}Error: ${e.message}${c.reset}`);
       }
       promptUser();
       return;
     }
 
-    // /skills
-    if (input === '/skills' || input === 'skills') {
-      console.log(`\n${c.bold}=== DAVID SKILLS MATRIX ===${c.reset}`);
-      const list = skillsRegistry.list();
-      list.slice(0, 30).forEach(s => {
-        console.log(`  ${c.cyan}${s.name.padEnd(28)}${c.reset} : ${s.description}`);
+    // /packs
+    if (input === '/packs' || input.startsWith('/packs ')) {
+      console.log(`\n${c.bold}=== VALIDATED INSTALLABLE SKILL PACKS ===${c.reset}`);
+      const packs = Object.entries(VALIDATED_SKILL_PACKS).map(([id, p]) => ({ id, ...p }));
+      packs.forEach(p => {
+        console.log(`  ${c.cyan}${p.id.padEnd(20)}${c.reset} : ${p.name}`);
+        console.log(`    ${c.dim}${p.description}${c.reset}`);
       });
-      if (list.length > 30) {
-        console.log(`  ${c.dim}... and ${list.length - 30} more cataloged skills (total: ${list.length})${c.reset}`);
-      }
-      console.log(`\n${c.dim}Run skill: ${c.yellow}/skill <name> <jsonArgs>${c.reset}\n`);
-      promptUser();
-      return;
-    }
-
-    // /serve
-    if (input.startsWith('/serve')) {
-      const parts = input.split(' ');
-      const dir = parts[1] || '.';
-      const port = Number(parts[2]) || 5000;
-      serveLocalSite(dir, port);
+      console.log(`\n${c.dim}Install: ${c.yellow}/pack install <id>${c.reset}\n`);
       promptUser();
       return;
     }
 
     // /help
     if (input === '/help' || input === 'help') {
-      console.log(`\n${c.bold}=== DAVID AGENT COMMANDS ===${c.reset}
-  ${c.yellow}David Unified Identity${c.reset} : Combines 4 internal models into one system.
-  ${c.yellow}/model <name>${c.reset}          : Switch model (inject, reviewer, accumulate, digest)
-  ${c.yellow}/models${c.reset}                : View all 4 models and their capabilities
-  ${c.yellow}/packs [query]${c.reset}         : Search installable validated skill packs
-  ${c.yellow}/pack install <id>${c.reset}     : Install skill pack into David's active registry
-  ${c.yellow}/heal <code>${c.reset}           : Execute code through self-healing loop
-  ${c.yellow}/serve [dir] [port]${c.reset}    : Launch local HTTP server preview
-  ${c.yellow}/skills${c.reset}                : List all available skills
-  ${c.yellow}/run <cmd>${c.reset}             : Run shell or terminal command
-  ${c.yellow}/exit${c.reset}                  : Exit session\n`);
+      console.log(`\n${c.bold}=== DAVID COMMANDS ===${c.reset}
+  ${c.yellow}/model <name>${c.reset}                : Switch internal model (inject, reviewer, accumulate, digest)
+  ${c.yellow}/models${c.reset}                      : View all 4 internal models
+  ${c.yellow}/credits${c.reset}                     : View credits wallet and balance
+  ${c.yellow}/credits add <amount>${c.reset}        : Top up credits
+  ${c.yellow}/seer <url>${c.reset}                  : AI Seer vision: inspect visible & invisible elements, forms & tokens
+  ${c.yellow}/automate <task> for <time>${c.reset} : Schedule long-running automation (e.g. for 24hrs or 78hrs)
+  ${c.yellow}/tasks${c.reset}                       : View all active long-running automation tasks
+  ${c.yellow}/heal <code>${c.reset}                 : Execute code through self-healing loop
+  ${c.yellow}/packs${c.reset}                       : List installable skill packs
+  ${c.yellow}/serve [dir] [port]${c.reset}          : Launch preview HTTP server
+  ${c.yellow}/skills${c.reset}                      : Complete skills matrix
+  ${c.yellow}/exit${c.reset}                        : Exit session\n`);
       promptUser();
       return;
     }
 
-    // Default prompt handling with David
+    // Default instruction execution
     const currentModel = davidSwarm.getCurrentModel();
-    console.log(`${c.cyan}[David - Model ${currentModel.name}]: Executing instruction...${c.reset}`);
+    creditsManager.deduct(currentModel.costPerRun, input.substring(0, 25), currentModel.name);
+    console.log(`${c.cyan}[David - Model ${currentModel.name}]: Executing task...${c.reset}`);
     const brainRes = await brainManager.processPrompt(input);
     if (brainRes.mode === 'llm') {
       console.log(`\n${brainRes.text}\n`);
     } else {
-      console.log(`\n${c.green}David Result:${c.reset} ${brainRes.summary || input}`);
+      console.log(`\n${c.green}David Executed:${c.reset} ${brainRes.summary || input}`);
     }
     promptUser();
   });
